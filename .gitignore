@@ -1,6 +1,7 @@
-# Build output
-bin/
-obj/
+# Build output. Only the project output folders, not test fixtures that happen to sit in a bin folder.
+**/bin/Debug/
+**/bin/Release/
+**/obj/
 build/
 publish/
 publish-single/

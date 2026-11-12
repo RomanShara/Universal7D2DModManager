@@ -6,7 +6,10 @@ place. The part worth reading the source for is the conflict analysis: it does n
 it replays the actual XPath patches on a copy of the game config in load order and reports what really
 happens to each node.
 
-![Dashboard](docs/screenshots/01-dashboard.png)
+![Walkthrough](docs/demo.gif)
+
+Download: see the [Releases](../../releases) page. Installation steps for regular users are in
+[INSTALL.md](INSTALL.md), version history in [CHANGELOG.md](CHANGELOG.md).
 
 This repository exists so the released executable can be verified. The binary is built from this source
 with the commands below and nothing else is added to it.
@@ -27,6 +30,17 @@ What it does
 
 Interface in English and Ukrainian. The manager never downloads mods and never sends anything except
 Nexus API requests made with the user's own key.
+
+
+Screenshots
+-----------
+
+| | |
+|---|---|
+| ![Library](docs/screenshots/02-library.png) | ![Installed](docs/screenshots/03-installed.png) |
+| Every archive is read, name and version come from ModInfo | What is really in the Mods folder |
+| ![Compatibility](docs/screenshots/04-compatibility.png) | ![Settings](docs/screenshots/06-settings.png) |
+| Per-mod report: DLL references, runtime, XPath patches | Paths, language, Nexus key |
 
 
 Requirements

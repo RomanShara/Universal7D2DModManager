@@ -43,6 +43,18 @@ Screenshots
 | Per-mod report: DLL references, runtime, XPath patches | Paths, language, Nexus key |
 
 
+Verify the download
+-------------------
+
+The release contains the executable and the same executable inside a zip, both byte for byte the files
+submitted to Nexus for review.
+
+    4E2DE4354CEC759E4DBA0E2FAE576344157DBC7A660793FE10C7E38A8F4EB227  Universal7D2DModManager.exe
+    26D5560E39D9B4D6D52F7AB10566534B6AE6878518E6CAC777FBE7FCC172DC23  Universal7D2DModManager.zip
+
+On Windows: `certutil -hashfile Universal7D2DModManager.exe SHA256`
+
+
 Requirements
 ------------
 

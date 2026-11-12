@@ -1,0 +1,217 @@
+@page "/settings"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+
+<PageTitle>@Vm.T("title.settings")</PageTitle>
+
+<div class="page settings-page">
+    <section class="card">
+        <div class="card-head">
+            <h3>@Vm.T("set.paths")</h3>
+            <button class="btn ghost sm" type="button" @onclick="() => Vm.ReopenSetup()">
+                <Icon Name="power" Size="14" /> @Vm.T("set.wizard")
+            </button>
+        </div>
+
+        <div class="field">
+            <label>@Vm.T("set.gameFolder")</label>
+            <div class="input-row">
+                <input type="text" @bind="Vm.Settings.GamePath" />
+                <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("game")'>
+                    <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
+                </button>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>@Vm.T("set.modsFolder")</label>
+            <div class="input-row">
+                <input type="text" @bind="Vm.Settings.ModsPath" />
+                <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("mods")'>
+                    <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
+                </button>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>@Vm.T("set.backupsFolder")</label>
+            <div class="input-row">
+                <input type="text" @bind="Vm.Settings.BackupsPath" placeholder="@Vm.T("set.defaultFolder")" />
+                <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("backups")'>
+                    <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
+                </button>
+            </div>
+        </div>
+
+        <div class="field">
+            <label>@Vm.T("set.versionOverride")</label>
+            <input type="text" list="known-game-versions" @bind="Vm.Settings.GameVersionOverride"
+                   placeholder="@Vm.T("set.versionExample")" />
+            <datalist id="known-game-versions">
+                @foreach (var version in KnownGameVersions)
+                {
+                    <option value="@version"></option>
+                }
+            </datalist>
+            <div class="field-hint">@Vm.T("set.versionHint")</div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h3>@Vm.T("set.archiveFolders")</h3>
+            <span class="muted small">@Vm.Settings.ArchivePaths.Count / @U7D2D.Core.Models.AppSettings.MaxArchivePaths</span>
+        </div>
+
+        @if (Vm.Settings.ArchivePaths.Count == 0)
+        {
+            <p class="muted">@Vm.T("set.noFolders")</p>
+        }
+
+        @foreach (var (path, index) in Vm.Settings.ArchivePaths.Select((p, i) => (p, i)).ToList())
+        {
+            <div class="path-row" @key="index">
+                <Icon Name="archive" Size="15" />
+                <input type="text" value="@path" @onchange="e => Vm.UpdateArchivePath(index, e.Value?.ToString() ?? string.Empty)" />
+                <button class="icon-btn" type="button" title="@Vm.T("set.open")" @onclick="() => Vm.OpenFolder(path)">
+                    <Icon Name="folder" Size="14" />
+                </button>
+                <button class="icon-btn danger" type="button" title="@Vm.T("set.delete")" @onclick="() => Vm.RemoveArchivePath(path)">
+                    <Icon Name="x" Size="14" />
+                </button>
+            </div>
+        }
+
+        @if (Vm.Settings.ArchivePaths.Count < U7D2D.Core.Models.AppSettings.MaxArchivePaths)
+        {
+            <button class="btn ghost wide dashed" type="button" @onclick="() => Vm.AddArchivePathAsync()">
+                <Icon Name="plus" Size="16" /> @Vm.T("set.addFolder")
+            </button>
+        }
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h3>@Vm.T("set.behaviour")</h3>
+        </div>
+
+        <label class="toggle-row">
+            <input type="checkbox" @bind="Vm.Settings.BackupBeforeChange" />
+            <div>
+                <strong>@Vm.T("set.backupBefore")</strong>
+                <span>@Vm.T("set.backupHint")</span>
+            </div>
+        </label>
+
+        <label class="toggle-row">
+            <input type="checkbox" @bind="Vm.Settings.ScanRecursively" />
+            <div>
+                <strong>@Vm.T("set.recursive")</strong>
+                <span>@Vm.T("set.recursiveHint")</span>
+            </div>
+        </label>
+
+        <div class="field inline">
+            <label>@Vm.T("set.maxDepth")</label>
+            <input type="number" min="1" max="32" @bind="Vm.Settings.MaxScanDepth" />
+        </div>
+
+        <label class="toggle-row">
+            <input type="checkbox" @bind="Vm.Settings.ConfirmBeforeDelete" />
+            <div>
+                <strong>@Vm.T("set.confirmDelete")</strong>
+                <span>@Vm.T("set.confirmHint")</span>
+            </div>
+        </label>
+    </section>
+
+    <section class="card nexus-card">
+        <div class="card-head">
+            <h3>@Vm.T("set.nexus")</h3>
+            <span class="muted small">@Vm.T("set.nexusManual")</span>
+        </div>
+
+        <p class="muted small nexus-note">@Vm.T("set.nexusNote")</p>
+
+        <div class="field">
+            <label>@Vm.T("set.apiKey")</label>
+            <div class="input-row">
+                <input type="password" @bind="Vm.NexusApiKeyInput" autocomplete="off"
+                       placeholder="@Vm.T("set.keyPlaceholder")" />
+                <button class="btn ghost" type="button" @onclick="() => Vm.ValidateNexusKeyAsync()"
+                        disabled="@Vm.IsValidatingNexusKey">
+                    <Icon Name="shield" Size="16" /> @Vm.T("set.checkKey")
+                </button>
+            </div>
+            <div class="field-hint">
+                @Vm.T("set.keyNote")
+                <button class="link-btn" type="button" @onclick='() => Vm.OpenNexusUrl("https://www.nexusmods.com/users/myaccount?tab=api")'>@Vm.T("set.apiPage")</button>.
+                @Vm.T("set.keyQuota")
+            </div>
+        </div>
+
+        <div class="field">
+            <label>@Vm.T("set.nexusDomain")</label>
+            <input type="text" @bind="Vm.Settings.NexusGameDomain" placeholder="7daystodie" />
+            <div class="field-hint">@Vm.T("set.forGame") <span class="mono">7daystodie</span>.</div>
+        </div>
+
+        <div class="kv-list">
+            <div class="kv"><span>@Vm.T("set.account")</span><span>@Vm.NexusUserText</span></div>
+            <div class="kv"><span>@Vm.T("set.quota")</span><span>@Vm.NexusQuotaText</span></div>
+            <div class="kv"><span>@Vm.T("set.lastCheck")</span><span>@Vm.NexusLastCheckText</span></div>
+        </div>
+    </section>
+
+    <section class="card">
+        <div class="card-head">
+            <h3>@Vm.T("set.appData")</h3>
+        </div>
+
+        <div class="kv-list">
+            <div class="kv">
+                <span>@Vm.T("set.dataDir")</span>
+                <button class="link-btn" type="button" @onclick="() => Vm.OpenFolder(Vm.AppDataRoot)">@Vm.AppDataRoot</button>
+            </div>
+            <div class="kv">
+                <span>@Vm.T("set.database")</span>
+                <span class="mono">@Vm.DatabasePath</span>
+            </div>
+        </div>
+
+        <p class="muted small" style="margin-top:10px">@Vm.T("set.dataNote")</p>
+
+        <div class="settings-actions">
+            <button class="btn ghost" type="button" @onclick="() => Vm.ClearCatalogAsync()">
+                <Icon Name="refresh" Size="16" /> @Vm.T("set.clearCache")
+            </button>
+            <button class="btn ghost" type="button" @onclick="() => Vm.ClearLogAsync()">
+                <Icon Name="trash" Size="16" /> @Vm.T("set.clearLog")
+            </button>
+            <button class="btn ghost" type="button" @onclick="() => Vm.SaveDiagnosticsAsync()">
+                <Icon Name="info" Size="16" /> @Vm.T("diag.save")
+            </button>
+        </div>
+        <div class="field-hint">@Vm.T("diag.hint")</div>
+    </section>
+
+    <div class="settings-save">
+        <span class="hint">@Vm.T("set.saveHint")</span>
+        <button class="btn primary" type="button" @onclick="() => Vm.SaveSettingsWithToastAsync()">
+            <Icon Name="check" Size="16" /> @Vm.T("set.save")
+        </button>
+    </div>
+</div>
+
+@code {
+    // Detection reads version.txt and store manifests. Repacks often ship none of them, so the field
+    // offers the releases the manager knows about instead of leaving the user with an empty box.
+    private static readonly string[] KnownGameVersions =
+    {
+        "3.4.0", "3.3.0", "3.2.0", "3.1.0", "3.0.0",
+        "2.0.0", "1.2.0", "1.1.0", "1.0.0"
+    };
+
+    protected override INotifyPropertyChanged ViewModel => Vm;
+}

@@ -1,0 +1,90 @@
+@page "/backups"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+
+<PageTitle>@Vm.T("title.backups")</PageTitle>
+
+<div class="page">
+    <div class="toolbar">
+        <div class="list-count"><strong>@Plurals.Copies(Vm.Backups.Count)</strong></div>
+        <div class="toolbar-right">
+            <button class="btn ghost" type="button" @onclick="() => Vm.RefreshBackupsAsync()">
+                <Icon Name="refresh" Size="16" /> @Vm.T("ui.refresh")
+            </button>
+            <button class="btn ghost" type="button" @onclick="() => Vm.OpenFolder(Vm.Settings.BackupsPath)">
+                <Icon Name="folder" Size="16" /> @Vm.T("ui.openFolder")
+            </button>
+        </div>
+    </div>
+
+    @if (Vm.Backups.Count == 0)
+    {
+        <div class="empty-state card">
+            <div class="empty-icon"><Icon Name="database" Size="34" /></div>
+            <h2>@Vm.T("bak.empty")</h2>
+            <p>@Vm.T("bak.emptyHint")</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-card">
+            <div class="table-head">
+                <span>@Vm.T("common.mod")</span>
+                <span>@Vm.T("bak.reason")</span>
+                <span>@Vm.T("bak.created")</span>
+                <span>@Vm.T("bak.size")</span>
+                <span></span>
+            </div>
+            @foreach (var backup in Vm.Backups)
+            {
+                <div class="table-row" @key="backup.Id">
+                    <div class="cell-main">
+                        <strong>@backup.ModName</strong>
+                        <span class="muted small">v@(string.IsNullOrWhiteSpace(backup.ModVersion) ? "—" : backup.ModVersion) · @backup.ModFolder</span>
+                    </div>
+                    <div class="muted">@backup.Reason</div>
+                    <div class="muted">@backup.CreatedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                    <div class="muted">@FormatSize(backup.SizeBytes)</div>
+                    <div class="row-actions">
+                        <button class="btn ghost sm" type="button" @onclick="() => Vm.OpenPath(backup.ArchivePath)" title="@Vm.T("bk.openFile")">
+                            <Icon Name="external" Size="14" />
+                        </button>
+                        <button class="btn primary sm" type="button" @onclick="() => Vm.RestoreAsync(backup)" disabled="@Vm.IsBusy">
+                            <Icon Name="refresh" Size="14" /> @Vm.T("bk.restore")
+                        </button>
+                        <button class="btn danger sm" type="button" @onclick="() => Vm.DeleteBackupAsync(backup)" disabled="@Vm.IsBusy">
+                            <Icon Name="trash" Size="14" />
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Vm.RefreshBackupsAsync();
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        string[] units =
+        [
+            Localization.S("card.unitB"), Localization.S("card.unitKb"),
+            Localization.S("card.unitMb"), Localization.S("card.unitGb")
+        ];
+        double value = bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1)
+        {
+            value /= 1024;
+            unit++;
+        }
+        return unit == 0 ? $"{bytes} {units[unit]}" : $"{value:0.#} {units[unit]}";
+    }
+}

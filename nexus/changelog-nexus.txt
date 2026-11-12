@@ -1,0 +1,33 @@
+[center][size=5][b]Changelog[/b][/size]
+[size=2]Tested on 7 Days to Die V 3.4.0[/size][/center]
+
+1.7.1
+- Fixed the misleading message when Nexus answers with a server error. Codes 500 and the Cloudflare
+  52x family used to be shown as "key rejected", which sent people to regenerate a key that was fine.
+  Now the message says the problem is on the Nexus side, and the code is visible.
+- One automatic retry after a short pause when the API returns 5xx.
+- The pasted API key is cleaned before use: line breaks, zero-width spaces, quotes and an apikey: or
+  Bearer prefix no longer break the request.
+
+1.7.0
+- First public release.
+- Conflict analysis works on nodes, not files. Every patch is reduced to an operation, a node and a
+  value, then replayed on a copy of the game config in load order, so the report says what really
+  happens: which value stays, which edit is lost, which patch finds no target.
+- Four verdicts instead of one warning: conflict, potential issue when the result depends on load
+  order, overlap when mods touch the same element but different attributes, and shared change when
+  they touch different nodes.
+- Patches that match nothing are reported, and a missing companion mod is told apart from a node
+  renamed by a game update.
+- Whole-file replacements are judged by content. An identical copy changes nothing, a copy that
+  already contains another mod's edit keeps it, only a copy that dropped it counts as a conflict.
+- Related mods are recognised by ModInfo dependencies and by DLL assembly references, so an
+  intentional override by a dependent mod is not reported as a conflict.
+- Resolution options for value conflicts, saved as a separate patch mod. The mods themselves are
+  never edited.
+- Game version is read from the game assembly constants, which works for repacks without version.txt.
+  Steam, GOG and Epic manifests are used when they exist.
+- Single executable. On first start it creates Data next to itself and keeps the database, settings,
+  logs, backups and the web profile there.
+- English and Ukrainian interface, choice is remembered.
+- Launching the game from the manager, with Easy Anti-Cheat on or off.

@@ -1,0 +1,178 @@
+@page "/configs"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+
+<PageTitle>@Vm.T("title.configs")</PageTitle>
+
+<div class="page">
+    @if (Vm.IsConfigLoading && Vm.ConfigMods.Count == 0)
+    {
+        <div class="card">
+            <div class="skeleton-line w30"></div>
+            <div class="skeleton-box big"></div>
+            <div class="skeleton-line w80"></div>
+            <div class="skeleton-line w60"></div>
+        </div>
+    }
+    else if (Vm.ConfigMods.Count == 0)
+    {
+        <div class="empty-state card">
+            <div class="empty-icon"><Icon Name="edit" Size="34" /></div>
+            <h2>@Vm.T("cfg.empty")</h2>
+            <p>@Vm.T("cf.emptyHint")</p>
+            <div class="empty-actions">
+                <button class="btn ghost" type="button" @onclick="() => Vm.LoadConfigsAsync()">
+                    <Icon Name="refresh" Size="16" /> @Vm.T("ui.refresh")
+                </button>
+                <button class="btn ghost" type="button" @onclick="() => Vm.OpenFolder(Vm.Settings.ModsPath)">
+                    <Icon Name="folder" Size="16" /> @Vm.T("ui.openMods")
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="config-grid">
+            <section class="card config-mods">
+                <div class="card-head">
+                    <h3>@Vm.T("cfg.modsWithConfigs")</h3>
+                    <span class="muted small">@Vm.ConfigMods.Count</span>
+                </div>
+
+                <ul class="picker-list">
+                    @foreach (var entry in Vm.ConfigMods)
+                    {
+                        <li class="picker-item @(Vm.ConfigMod == entry ? "active" : "")" @onclick="() => Vm.SelectConfigModAsync(entry)">
+                            <div class="picker-title">@entry.Title</div>
+                            <div class="picker-sub">
+                                <span>v@(entry.Version)</span>
+                                <span class="chip tiny">@entry.FileCount</span>
+                            </div>
+                        </li>
+                    }
+                </ul>
+
+                <button class="btn ghost wide" type="button" @onclick="() => Vm.LoadConfigsAsync()">
+                    <Icon Name="refresh" Size="15" /> @Vm.T("ui.refreshList")
+                </button>
+            </section>
+
+            <section class="card config-editor">
+                @if (Vm.ConfigMod is null)
+                {
+                    <div class="empty-state small">
+                        <p>@Vm.T("cfg.pick")</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="card-head">
+                        <div>
+                            <h3>@Vm.ConfigMod.Title</h3>
+                            <p class="muted small">@Vm.ConfigMod.Mod.Model.FullPath</p>
+                        </div>
+                        <button class="btn ghost sm" type="button" @onclick="() => Vm.OpenFolder(Vm.ConfigMod!.Mod.Model.FullPath)">
+                            <Icon Name="folder" Size="14" /> @Vm.T("cf.modFolder")
+                        </button>
+                    </div>
+
+                    <div class="file-tabs">
+                        @foreach (var file in Vm.ConfigFiles)
+                        {
+                            <button class="chip-btn @(Vm.ConfigFile == file ? "active" : "")" type="button"
+                                    @onclick="() => Vm.SelectConfigFileAsync(file)">
+                                @file.DisplayName
+                            </button>
+                        }
+                    </div>
+
+                    @if (Vm.ConfigNotice is { Length: > 0 })
+                    {
+                        <div class="inline-warning">
+                            <Icon Name="alert" Size="14" /><span>@Vm.ConfigNotice</span>
+                        </div>
+                    }
+
+                    @if (Vm.IsConfigLoading)
+                    {
+                        <div class="skeleton-line w40"></div>
+                        <div class="skeleton-box"></div>
+                        <div class="skeleton-line w70"></div>
+                    }
+                    else if (Vm.ConfigFields.Count == 0)
+                    {
+                        <div class="empty-state small">
+                            <p>@Vm.T("cfg.noValues")</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="config-scroll">
+                            @foreach (var group in Vm.ConfigFields.GroupBy(f => f.Group))
+                            {
+                                <div class="config-group">
+                                    <h4>@group.Key</h4>
+                                    <div class="config-rows">
+                                        @foreach (var field in group)
+                                        {
+                                            <div class="config-row @(field.IsDirty ? "dirty" : "")" @key="field.Key">
+                                                <div class="config-label">
+                                                    <span class="config-name">@field.Label</span>
+                                                    @if (field.IsNumber)
+                                                    {
+                                                        <span class="chip tiny">@Vm.T("cfg.number")</span>
+                                                    }
+                                                </div>
+                                                <div class="config-input">
+                                                    @if (field.IsBool)
+                                                    {
+                                                        <label class="switch">
+                                                            <input type="checkbox" checked="@field.BoolValue"
+                                                                   @onchange="e => field.BoolValue = e.Value is bool b && b" />
+                                                            <span class="switch-track"></span>
+                                                            <span class="switch-text">@(field.BoolValue ? Vm.T("cfg.on") : Vm.T("cfg.off"))</span>
+                                                        </label>
+                                                    }
+                                                    else
+                                                    {
+                                                        <input type="text" value="@field.EditValue" spellcheck="false"
+                                                               @onchange='e => field.EditValue = e.Value?.ToString() ?? string.Empty' />
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="config-save">
+                            <span class="hint">
+                                @Vm.T("cf.saveHint")
+                            </span>
+                            <div class="config-save-actions">
+                                <button class="btn ghost" type="button" @onclick="() => Vm.ResetConfigAsync()" disabled="@(!Vm.HasConfigChanges)">
+                                    <Icon Name="refresh" Size="15" /> @Vm.T("cf.revert")
+                                </button>
+                                <button class="btn primary" type="button" @onclick="() => Vm.SaveConfigAsync()" disabled="@(!Vm.HasConfigChanges)">
+                                    <Icon Name="check" Size="15" /> @Vm.T("cf.save")
+                                    @if (Vm.ConfigFields.Any(f => f.IsDirty))
+                                    {
+                                        <span class="dirty-badge">@Vm.ConfigFields.Count(f => f.IsDirty)</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
+            </section>
+        </div>
+    }
+</div>
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+
+    protected override async Task OnInitializedAsync() => await Vm.LoadConfigsAsync();
+}

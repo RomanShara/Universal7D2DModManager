@@ -1,0 +1,211 @@
+@page "/installed"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+@inject NavigationManager Nav
+
+<PageTitle>@Vm.T("title.installed")</PageTitle>
+
+<div class="page">
+    <div class="toolbar">
+        <div class="search-box">
+            <Icon Name="search" Size="16" />
+            <input type="text" placeholder="@Vm.T("inst2.search")" @bind="Search" @bind:event="oninput" />
+        </div>
+        <div class="toolbar-right">
+            <button class="btn accent" type="button" @onclick="() => Vm.CheckNexusUpdatesAsync()"
+                    disabled="@Vm.IsCheckingNexus" title="@Vm.T("inst2.checkHint")">
+                <Icon Name="refresh" Size="16" /> @Vm.T("inst2.checkUpdates")
+            </button>
+            <button class="btn ghost" type="button" @onclick="() => Vm.RefreshInstalledAsync()">
+                <Icon Name="refresh" Size="16" /> @Vm.T("ui.refreshList")
+            </button>
+            <button class="btn ghost" type="button" @onclick="() => Vm.AnalyzeConflictsAsync()" disabled="@Vm.IsAnalyzing">
+                <Icon Name="shield" Size="16" /> @Vm.T("inst2.analyzeConflicts")
+            </button>
+            <button class="btn ghost" type="button" @onclick="() => Vm.OpenFolder(Vm.Settings.ModsPath)">
+                <Icon Name="folder" Size="16" /> @Vm.T("ui.openMods")
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Vm.NexusStatusText) || Vm.NexusUpdatesCount > 0 || Vm.IsCheckingNexus)
+    {
+        <div class="nexus-banner">
+            <Icon Name="shield" Size="15" />
+            @if (!string.IsNullOrWhiteSpace(Vm.NexusStatusText))
+            {
+                <span>@Vm.NexusStatusText</span>
+            }
+            else
+            {
+                <span>@Vm.T("inst.updates") <strong>@Vm.NexusUpdatesCount</strong>. @Vm.NexusLastCheckText.</span>
+            }
+            <span class="muted small">@Vm.NexusQuotaText</span>
+            @if (Vm.NexusUpdatesCount > 0)
+            {
+                <button class="link-btn" type="button" @onclick="() => Vm.ClearNexusResults()">@Vm.T("inst.resetMarks")</button>
+            }
+        </div>
+    }
+
+    @if (Vm.InstalledMods.Count == 0)
+    {
+        <div class="empty-state card">
+            <div class="empty-icon"><Icon Name="check-square" Size="34" /></div>
+            <h2>@Vm.T("inst.empty")</h2>
+            <p>@Vm.T("inst.emptyHint")</p>
+            <div class="empty-actions">
+                <button class="btn primary" type="button" @onclick='() => Nav.NavigateTo("library")'>
+                    <Icon Name="archive" Size="16" /> @Vm.T("inst2.goLibrary")
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="list-head">
+            <div class="list-count"><strong>@Plurals.Mods(Filtered.Count())</strong> @Vm.T("inst.inMods")</div>
+            <div class="muted">@Vm.ModsPathText</div>
+        </div>
+
+        <div class="installed-list">
+            @foreach (var mod in Filtered)
+            {
+                <div class="installed-row @(mod.IsBusy ? "busy" : "")" @key="mod.Folder">
+                    <div class="installed-main">
+                        <div class="installed-title">
+                            <span>@mod.Title</span>
+                            @if (mod.HasUpdate)
+                            {
+                                <span class="badge update">@Vm.F("inst2.archiveVersion", mod.AvailableVersion ?? string.Empty)</span>
+                            }
+                            @if (mod.HasNexusUpdate)
+                            {
+                                <span class="badge nexus">Nexus → @mod.NexusRemoteVersion</span>
+                            }
+                            @if (!mod.HasModInfo)
+                            {
+                                <span class="badge risky">@Vm.T("inst.noModInfo")</span>
+                            }
+                        </div>
+                        <div class="mod-meta">
+                            <span class="chip">v@(mod.Version)</span>
+                            <span class="chip muted">@mod.Author</span>
+                            <span class="chip muted">@mod.SizeLabel</span>
+                            <span class="chip muted">@Plurals.Files(mod.FileCount)</span>
+                            @if (mod.HasCode)
+                            {
+                                <span class="chip accent">DLL</span>
+                            }
+                            @if (mod.ConfigCount > 0)
+                            {
+                                <span class="chip">@mod.ConfigCount XML</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(mod.VersionNote))
+                            {
+                                <span class="chip warn">@mod.VersionNote</span>
+                            }
+                        </div>
+                        <div class="installed-sub">
+                            <span class="muted">@mod.Folder</span>
+                            <span class="dot"></span>
+                            <span class="muted">@mod.InstalledLabel</span>
+                            @if (!string.IsNullOrWhiteSpace(mod.SourceArchive))
+                            {
+                                <span class="dot"></span>
+                                <span class="muted" title="@mod.SourceArchive">@Vm.T("inst.fromArchive") @Path.GetFileName(mod.SourceArchive)</span>
+                            }
+                        </div>
+                        <div class="nexus-row">
+                            <span class="chip muted">@mod.NexusIdLabel</span>
+                            @if (mod.Nexus is not null)
+                            {
+                                <span class="muted small">@mod.NexusMessage</span>
+                                @if (!string.IsNullOrWhiteSpace(mod.NexusFilesUrl))
+                                {
+                                    <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusFilesUrl)">@Vm.T("inst.filesTab")</button>
+                                    <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusChangelogUrl)">@Vm.T("inst.changes")</button>
+                                }
+                                else if (mod.NexusNeedsLink)
+                                {
+                                    <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(Vm.NexusGameModsUrl)">@Vm.T("inst.findNexus")</button>
+                                }
+                            }
+                            else
+                            {
+                                <span class="muted small">@Vm.T("inst.notChecked")</span>
+                            }
+                            <button class="link-btn" type="button" @onclick="() => BeginEdit(mod)">ID…</button>
+                        </div>
+
+                        @if (EditingFolder == mod.Folder)
+                        {
+                            <div class="input-row nexus-edit">
+                                <input type="text" @bind="EditValue" placeholder="@Vm.T("inst2.idPlaceholder")" />
+                                <button class="btn ghost sm" type="button" @onclick="() => SaveEdit(mod)">@Vm.T("common.save")</button>
+                                <button class="btn ghost sm" type="button" @onclick="CancelEdit">@Vm.T("common.cancel")</button>
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(mod.WarningsText))
+                        {
+                            <div class="inline-warning">
+                                <Icon Name="alert" Size="14" /><span>@mod.WarningsText</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="installed-actions">
+                        @if (mod.HasUpdate)
+                        {
+                            <button class="btn accent sm" type="button" @onclick="() => Vm.UpdateInstalledAsync(mod)" disabled="@mod.IsBusy">
+                                <Icon Name="refresh" Size="14" /> @Vm.T("ui.update")
+                            </button>
+                        }
+                        <button class="btn ghost sm" type="button" @onclick="() => Vm.BackupModAsync(mod)" disabled="@mod.IsBusy" title="@Vm.T("inst2.backupHint")">
+                            <Icon Name="database" Size="14" /> @Vm.T("inst2.backup")
+                        </button>
+                        <button class="btn ghost sm" type="button" @onclick="() => Vm.OpenFolder(mod.Model.FullPath)">
+                            <Icon Name="folder" Size="14" /> @Vm.T("ui.folder")
+                        </button>
+                        <button class="btn danger sm" type="button" @onclick="() => Vm.UninstallAsync(mod)" disabled="@mod.IsBusy">
+                            <Icon Name="trash" Size="14" /> @Vm.T("set.delete")
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+
+    private string Search { get; set; } = string.Empty;
+    private string? EditingFolder { get; set; }
+    private string EditValue { get; set; } = string.Empty;
+
+    private IEnumerable<InstalledCardViewModel> Filtered => string.IsNullOrWhiteSpace(Search)
+        ? Vm.InstalledMods
+        : Vm.InstalledMods.Where(m => m.SearchIndex.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private void BeginEdit(InstalledCardViewModel mod)
+    {
+        EditingFolder = mod.Folder;
+        EditValue = mod.Nexus?.ModId > 0 ? mod.Nexus.ModId.ToString() : string.Empty;
+    }
+
+    private void SaveEdit(InstalledCardViewModel mod)
+    {
+        Vm.SaveNexusLink(mod.Folder, EditValue);
+        EditingFolder = null;
+        EditValue = string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        EditingFolder = null;
+        EditValue = string.Empty;
+    }
+}

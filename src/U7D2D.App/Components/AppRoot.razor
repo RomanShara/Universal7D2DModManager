@@ -1,0 +1,16 @@
+@using U7D2D.App.Components.Layout
+@using Microsoft.AspNetCore.Components.Routing
+
+<Router AppAssembly="@typeof(AppRoot).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="@typeof(MainLayout)">
+            <div class="empty-state">
+                <h2>@Localization.S("ui.notFound")</h2>
+                <p>@Localization.S("ui.notFoundHint")</p>
+            </div>
+        </LayoutView>
+    </NotFound>
+</Router>

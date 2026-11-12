@@ -1,0 +1,42 @@
+# Build output
+bin/
+obj/
+build/
+publish/
+publish-single/
+dist/
+*.user
+*.suo
+.vs/
+
+# Runtime data written next to the executable
+Data/
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Test and sample archives
+testdata/
+mods-backup/
+
+# Release archives
+*.zip
+*.7z
+*.rar
+
+# Local art sources
+nexus/art/
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Workspace and internal notes
+.workbuddy-ai/
+REPORT.md
+nexus/deploy-notes.txt
+
+# Debug screenshots in the project root
+/*_zoom.png

@@ -1,0 +1,61 @@
+@using U7D2D.App.Services
+@implements IDisposable
+@inject ToastService Toasts
+
+<div class="toast-stack">
+    @foreach (var toast in _items)
+    {
+        <div class="toast @toast.Kind.ToString().ToLowerInvariant()" @key="toast.Id" @onclick="() => Dismiss(toast.Id)">
+            <div class="toast-icon">
+                <Icon Name="@IconFor(toast.Kind)" Size="18" />
+            </div>
+            <div class="toast-body">
+                <div class="toast-title">@toast.Title</div>
+                @if (!string.IsNullOrWhiteSpace(toast.Message))
+                {
+                    <div class="toast-message">@toast.Message</div>
+                }
+            </div>
+            <button class="toast-close" type="button" aria-label="@Localization.S("toast.close")">
+                <Icon Name="x" Size="14" />
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastMessage> _items = new();
+
+    protected override void OnInitialized()
+    {
+        Toasts.Published += OnPublished;
+    }
+
+    private void OnPublished(ToastMessage message)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            _items.Insert(0, message);
+            while (_items.Count > 3) _items.RemoveAt(_items.Count - 1);
+            StateHasChanged();
+
+            await Task.Delay(5200);
+            if (_items.Remove(message)) StateHasChanged();
+        });
+    }
+
+    private void Dismiss(Guid id)
+    {
+        if (_items.RemoveAll(t => t.Id == id) > 0) StateHasChanged();
+    }
+
+    private static string IconFor(ToastKind kind) => kind switch
+    {
+        ToastKind.Success => "check",
+        ToastKind.Warning => "alert",
+        ToastKind.Error => "alert",
+        _ => "info"
+    };
+
+    public void Dispose() => Toasts.Published -= OnPublished;
+}

@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>U7D2D.App</RootNamespace>
+    <AssemblyName>Universal7D2DModManager</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Product>Universal 7 Days to Die Mod Manager</Product>
+    <Company>Universal Mod Tools</Company>
+    <Version>1.7.4</Version>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Wpf" Version="10.0.130" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\U7D2D.Core\U7D2D.Core.csproj" />
+  </ItemGroup>
+
+  <!-- The interface lives in web/ and is embedded, so the product ships as a single executable.
+       It is unpacked next to the executable on first start. The folder is not named wwwroot on
+       purpose: the SDK would treat it as static web assets and copy it next to the executable. -->
+  <ItemGroup>
+    <EmbeddedResource Include="web\**\*" LogicalName="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

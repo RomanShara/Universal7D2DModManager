@@ -1,0 +1,176 @@
+@using System.ComponentModel
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AppViewModel Vm
+@inject NavigationManager Nav
+
+<div class="app-shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">7D</div>
+            <div class="brand-text">
+                <span>UNIVERSAL</span>
+                <strong>Mod Manager</strong>
+            </div>
+        </div>
+
+        <button class="launch-btn" type="button" disabled="@(!Vm.GameReady)" @onclick="() => Vm.LaunchGame(_eac)">
+            <Icon Name="gamepad" Size="17" />
+            <span>@Vm.T("nav.launch")</span>
+        </button>
+
+        <label class="launch-eac" title="@Vm.T("nav.eacHint")">
+            <input type="checkbox" @bind="_eac" />
+            <span>@Vm.T("nav.eac")</span>
+        </label>
+
+        <nav class="nav">
+            <NavLink class="nav-item" href="" Match="NavLinkMatch.All">
+                <Icon Name="grid" />
+                <span>@Vm.T("nav.overview")</span>
+            </NavLink>
+            <NavLink class="nav-item" href="library">
+                <Icon Name="archive" />
+                <span>@Vm.T("nav.library")</span>
+                @if (Vm.AvailableCount > 0)
+                {
+                    <em class="nav-count">@Vm.AvailableCount</em>
+                }
+            </NavLink>
+            <NavLink class="nav-item" href="installed">
+                <Icon Name="check-square" />
+                <span>@Vm.T("nav.installed")</span>
+                @if (Vm.InstalledCount > 0)
+                {
+                    <em class="nav-count">@Vm.InstalledCount</em>
+                }
+            </NavLink>
+            <NavLink class="nav-item" href="analysis">
+                <Icon Name="shield" />
+                <span>@Vm.T("nav.analysis")</span>
+            </NavLink>
+            <NavLink class="nav-item" href="configs">
+                <Icon Name="edit" />
+                <span>@Vm.T("nav.configs")</span>
+            </NavLink>
+            <NavLink class="nav-item" href="backups">
+                <Icon Name="database" />
+                <span>@Vm.T("nav.backups")</span>
+                @if (Vm.BackupsCount > 0)
+                {
+                    <em class="nav-count">@Vm.BackupsCount</em>
+                }
+            </NavLink>
+            <NavLink class="nav-item" href="settings">
+                <Icon Name="sliders" />
+                <span>@Vm.T("nav.settings")</span>
+            </NavLink>
+        </nav>
+
+        <div class="sidebar-foot">
+            <div class="game-chip @(Vm.GameReady ? "ok" : "bad")">
+                <Icon Name="gamepad" Size="18" />
+                <div class="game-chip-text">
+                    <span>7 Days to Die</span>
+                    <strong>@Vm.GameVersionText</strong>
+                </div>
+            </div>
+            <div class="sidebar-hint">
+                @(Vm.GameDeepAnalysis ? Vm.T("shell.deepOk") : Vm.T("shell.deepMissing"))
+            </div>
+
+            <div class="lang-switch">
+                <button type="button" class="lang-btn @(Vm.Language == Language.En ? "active" : "")"
+                        @onclick="() => Vm.SetLanguage(Language.En)">EN</button>
+                <button type="button" class="lang-btn @(Vm.Language == Language.Ua ? "active" : "")"
+                        @onclick="() => Vm.SetLanguage(Language.Ua)">UA</button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-title">
+                <h1>@PageTitle</h1>
+                <p>@PageSubtitle</p>
+            </div>
+            <div class="topbar-actions">
+                @if (Vm.IsBusy || Vm.IsScanning || Vm.IsAnalyzing)
+                {
+                    <div class="status-pill">
+                        <span class="spinner"></span>
+                        <span class="status-text">@Vm.StatusText</span>
+                    </div>
+                }
+                <button class="btn primary" type="button" @onclick="ScanAsync" disabled="@(!Vm.CanScan)">
+                    <Icon Name="refresh" Size="16" />
+                    <span>@Vm.T("nav.scanArchives")</span>
+                </button>
+            </div>
+        </header>
+
+        @if (Vm.IsScanning)
+        {
+            <div class="scan-bar">
+                <div class="scan-bar-fill" style="width:@(Vm.ProgressPercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+            </div>
+        }
+
+        <div class="content">
+            @Body
+        </div>
+    </main>
+</div>
+
+<ToastHost />
+<ConfirmDialog />
+<Onboarding />
+
+@code {
+    // EAC stays on by default: turning it off changes what multiplayer the player can join.
+    private bool _eac = true;
+
+    private string PageTitle => RelativePath switch
+    {
+        "library" => Vm.T("title.library"),
+        "installed" => Vm.T("title.installed"),
+        "analysis" => Vm.T("title.analysis"),
+        "configs" => Vm.T("title.configs"),
+        "backups" => Vm.T("title.backups"),
+        "settings" => Vm.T("title.settings"),
+        _ => Vm.T("title.overview")
+    };
+
+    private string PageSubtitle => RelativePath switch
+    {
+        "library" => Vm.T("sub.library"),
+        "installed" => Vm.T("sub.installed"),
+        "analysis" => Vm.T("sub.analysis"),
+        "configs" => Vm.T("sub.configs"),
+        "backups" => Vm.T("sub.backups"),
+        "settings" => Vm.T("sub.settings"),
+        _ => Vm.T("sub.overview")
+    };
+
+    private string RelativePath => Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].TrimEnd('/');
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Vm.InitializeAsync();
+    }
+
+    private async Task ScanAsync()
+    {
+        await Vm.ScanAsync();
+        if (RelativePath != "library") Nav.NavigateTo("library");
+    }
+
+    protected override void OnInitialized() => Vm.PropertyChanged += OnViewModelChanged;
+
+    // The layout shows the same view model as the pages, so it has to follow its changes too:
+    // without this the sidebar keeps the language it was first rendered with.
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Vm.PropertyChanged -= OnViewModelChanged;
+}

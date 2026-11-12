@@ -1,0 +1,354 @@
+@page "/analysis"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+
+<PageTitle>@Vm.T("title.analysis")</PageTitle>
+
+<div class="page">
+    <div class="toolbar">
+        <div class="list-count">
+            @Vm.T("an.toolbar")
+            @if (Vm.Game?.VersionString is { Length: > 0 } version)
+            {
+                <span class="muted">&nbsp;· @Vm.T("an.gameLabel") @version</span>
+            }
+        </div>
+        <div class="toolbar-right">
+            <button class="btn primary" type="button" @onclick="() => Vm.AnalyzeConflictsAsync()" disabled="@Vm.IsAnalyzing">
+                <Icon Name="layers" Size="16" /> @Vm.T("an.button")
+            </button>
+        </div>
+    </div>
+
+    <div class="analysis-grid">
+        <section class="card picker-card">
+            <div class="card-head">
+                <h3>@Vm.T("an.pick")</h3>
+                <span class="muted small">@Vm.AvailableCount</span>
+            </div>
+
+            <div class="search-box compact">
+                <Icon Name="search" Size="15" />
+                <input type="text" placeholder="@Vm.T("an.search")" @bind="Search" @bind:event="oninput" />
+            </div>
+
+            @if (Vm.AvailableCount == 0)
+            {
+                <p class="muted">@Vm.T("an.scanFirst")</p>
+            }
+            else
+            {
+                <ul class="picker-list">
+                    @foreach (var card in Filtered.Take(120))
+                    {
+                        <li class="picker-item @(Vm.AnalysisTarget?.Id == card.Package.Id ? "active" : "")"
+                            @onclick="() => Vm.AnalyzeAsync(card.Package)">
+                            <div class="picker-title">@card.Title</div>
+                            <div class="picker-sub">
+                                <span>v@(card.Version)</span>
+                                @if (card.HasCode)
+                                {
+                                    <span class="chip accent tiny">DLL</span>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+
+        </section>
+
+        <section class="card report-card">
+            @if (Vm.IsAnalyzing)
+            {
+                <div class="report-loading">
+                    <div class="skeleton-line w40"></div>
+                    <div class="skeleton-box big"></div>
+                    <div class="skeleton-line w90"></div>
+                    <div class="skeleton-line w70"></div>
+                    <div class="skeleton-line w80"></div>
+                </div>
+            }
+            else if (Vm.Report is null)
+            {
+                <div class="empty-state small">
+                    <div class="empty-icon"><Icon Name="shield" Size="30" /></div>
+                    <h3>@Vm.T("an.notStarted")</h3>
+                    <p>@Vm.T("an.notStartedHint")</p>
+                </div>
+            }
+            else
+            {
+                var report = Vm.Report;
+
+                <div class="report-head">
+                    <div>
+                        <h2>@report.ModName</h2>
+                        <p class="muted">v@(report.ModVersion) · @Vm.T("an.gameLabel"): @(report.GameVersion ?? Vm.T("an.gameUndefined"))</p>
+                    </div>
+                    <span class="verdict @VerdictClass(report.Verdict)">@VerdictLabel(report.Verdict)</span>
+                </div>
+
+                <div class="confidence">
+                    <div class="confidence-label">
+                        <span>@Vm.T("an.confidence")</span>
+                        <strong>@((report.Confidence * 100).ToString("0"))%</strong>
+                    </div>
+                    <div class="confidence-track">
+                        <div class="confidence-fill @VerdictClass(report.Verdict)" style="width:@((report.Confidence * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></div>
+                    </div>
+                </div>
+
+                <p class="report-summary">@report.Summary</p>
+
+                <div class="findings">
+                    @foreach (var finding in report.Findings)
+                    {
+                        <div class="finding @finding.Severity.ToString().ToLowerInvariant()">
+                            <div class="finding-head">
+                                <span class="severity @finding.Severity.ToString().ToLowerInvariant()">@SeverityLabel(finding.Severity)</span>
+                                <span class="finding-category">@finding.Category</span>
+                                <span class="finding-confidence">@((finding.Confidence * 100).ToString("0"))%</span>
+                            </div>
+                            <div class="finding-title">@finding.Title</div>
+                            <div class="finding-detail">@finding.Detail</div>
+                            @if (!string.IsNullOrWhiteSpace(finding.Evidence))
+                            {
+                                <div class="finding-evidence"><Icon Name="cpu" Size="13" /> @finding.Evidence</div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="report-columns">
+                    <div>
+                        <h4>@Vm.T("an.used")</h4>
+                        <ul class="plain-list">
+                            @foreach (var signal in report.SignalsUsed)
+                            {
+                                <li>@signal</li>
+                            }
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>@Vm.T("an.notChecked")</h4>
+                        <ul class="plain-list warn">
+                            @foreach (var item in report.NotVerified)
+                            {
+                                <li>@item</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        </section>
+    </div>
+
+    @if (Vm.Conflicts is not null)
+    {
+        <section class="card">
+            <div class="card-head">
+                <h3>@Vm.T("an.conflicts")</h3>
+                <span class="badge @(Vm.Conflicts.Conflicts.Count == 0 ? "installed" : "risky")">
+                    @(Vm.Conflicts.Conflicts.Count == 0 ? Vm.T("shell.notFound") : $"{Vm.Conflicts.Conflicts.Count}")
+                </span>
+            </div>
+
+            @if (Vm.Conflicts.Conflicts.Count == 0)
+            {
+                <p class="muted">@Vm.T("an.noConflicts")</p>
+            }
+            else
+            {
+                <div class="conflict-summary">
+                    <span class="summary-item conflict">@Vm.T("an.relConflict") <b>@Vm.Conflicts.ConflictCount</b></span>
+                    <span class="summary-item potential">@Vm.T("an.relPotential") <b>@Vm.Conflicts.PotentialCount</b></span>
+                    <span class="summary-item overlap">@Vm.T("an.relOverlap") <b>@Vm.Conflicts.OverlapCount</b></span>
+                    <span class="summary-item coexistence">@Vm.T("an.relCoexistence") <b>@Vm.Conflicts.CoexistenceCount</b></span>
+                </div>
+
+                @if (Vm.Conflicts.LoadOrder.Count > 0)
+                {
+                    <details class="load-order">
+                        <summary>@Vm.F("an.loadOrder", Vm.Conflicts.LoadOrder.Count)</summary>
+                        <ol>
+                            @foreach (var name in Vm.Conflicts.LoadOrder)
+                            {
+                                <li>@name</li>
+                            }
+                        </ol>
+                    </details>
+                }
+
+                <div class="conflict-table">
+                    @foreach (var conflict in Vm.Conflicts.Conflicts)
+                    {
+                        var expanded = _expanded.Contains(conflict);
+                        <div class="conflict-item">
+                            <div class="conflict-row">
+                                <span class="relation @RelationClass(conflict.Relation)">@RelationLabel(conflict.Relation)</span>
+                                @if (conflict.Related)
+                                {
+                                    <span class="relation related" title="@Vm.T("an.relatedHint")">@Vm.T("an.related")</span>
+                                }
+                                <div class="conflict-main">
+                                    <div class="conflict-subject">@conflict.Subject</div>
+                                    <div class="muted small">@conflict.Detail</div>
+                                </div>
+                                <div class="conflict-mods" title="@ModsTooltip(conflict)">@ModsLabel(conflict)</div>
+                                @if (conflict.HasDetails)
+                                {
+                                    <button class="conflict-toggle" type="button" @onclick="() => Toggle(conflict)">
+                                        @(expanded ? Vm.T("an.hideNodes") : Vm.T("an.showNodes"))
+                                    </button>
+                                }
+                            </div>
+
+                            @if (expanded && conflict.HasDetails)
+                            {
+                                <div class="conflict-details">
+                                    <table class="patch-table">
+                                        <thead>
+                                            <tr>
+                                                <th>@Vm.T("an.colMod")</th>
+                                                <th>@Vm.T("an.colOp")</th>
+                                                <th>XPath</th>
+                                                <th>@Vm.T("an.colBefore")</th>
+                                                <th>@Vm.T("an.colAfter")</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var participant in conflict.Participants)
+                                            {
+                                                <tr>
+                                                    <td class="patch-mod">@participant.Mod</td>
+                                                    <td><span class="chip tiny">@participant.Operation</span></td>
+                                                    <td class="patch-xpath">@participant.XPath</td>
+                                                    <td class="patch-value">@(participant.OriginalValue ?? Vm.T("an.notFound"))</td>
+                                                    <td class="patch-value new">@(participant.NewValue ?? participant.Note ?? Vm.T("an.removal"))</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                    <p class="muted small">
+                                        @Vm.T("an.files") @string.Join(", ", conflict.Participants.Select(p => p.File).Distinct(StringComparer.OrdinalIgnoreCase))
+                                    </p>
+
+                                    <div class="resolution">
+                                        <div class="muted small">@Vm.T("an.options")</div>
+                                        <div class="resolution-options">
+                                            @foreach (var option in Vm.Suggestions(conflict))
+                                            {
+                                                <button class="btn ghost sm" type="button"
+                                                        title="@option.Description"
+                                                        disabled="@(!option.CanExport)"
+                                                        @onclick="() => Vm.CreateMergedPatchAsync(conflict, option)">
+                                                    @(option.CanExport ? $"{Vm.T("an.createPatch")} {option.Title}" : option.Title)
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @foreach (var note in Vm.Conflicts.Notes)
+            {
+                <p class="muted small note">@note</p>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+
+    private string Search { get; set; } = string.Empty;
+
+    private readonly HashSet<ConflictEntry> _expanded = new();
+
+    /// <summary>Names every mod involved, not just the first pair, and folds the rest into "+N".</summary>
+    private static string ModsLabel(ConflictEntry conflict)
+    {
+        var names = conflict.Participants
+            .Select(p => p.Mod)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (names.Count == 0) names.Add(conflict.ModA);
+        if (names.Count == 1) return names[0];
+        if (names.Count <= 2) return string.Join(" ↔ ", names);
+
+        return $"{names[0]} ↔ {names[1]} +{names.Count - 2}";
+    }
+
+    private static string ModsTooltip(ConflictEntry conflict)
+    {
+        var names = conflict.Participants
+            .Select(p => p.Mod)
+            .Where(m => !string.IsNullOrWhiteSpace(m))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return names.Count == 0 ? conflict.ModA : string.Join(", ", names);
+    }
+
+    private string RelationLabel(ConflictRelation relation) => relation switch
+    {
+        ConflictRelation.Coexistence => Vm.T("an.relCoexistence"),
+        ConflictRelation.Overlap => Vm.T("an.relOverlap"),
+        ConflictRelation.Potential => Vm.T("an.relPotential"),
+        _ => Vm.T("an.relConflict")
+    };
+
+    private static string RelationClass(ConflictRelation relation) => relation switch
+    {
+        ConflictRelation.Coexistence => "ok",
+        ConflictRelation.Overlap => "info",
+        ConflictRelation.Potential => "warn",
+        _ => "critical"
+    };
+
+    private void Toggle(ConflictEntry conflict)
+    {
+        if (!_expanded.Add(conflict)) _expanded.Remove(conflict);
+    }
+
+    private IEnumerable<ModCardViewModel> Filtered => string.IsNullOrWhiteSpace(Search)
+        ? Vm.AvailableMods
+        : Vm.AvailableMods.Where(m => m.SearchIndex.Contains(Search.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private static string VerdictClass(U7D2D.Core.Models.CompatibilityVerdict verdict) => verdict switch
+    {
+        U7D2D.Core.Models.CompatibilityVerdict.Incompatible => "critical",
+        U7D2D.Core.Models.CompatibilityVerdict.LikelyIncompatible => "critical",
+        U7D2D.Core.Models.CompatibilityVerdict.Risky => "risky",
+        U7D2D.Core.Models.CompatibilityVerdict.LikelyCompatible => "ok",
+        U7D2D.Core.Models.CompatibilityVerdict.Compatible => "ok",
+        _ => "unknown"
+    };
+
+    private string VerdictLabel(U7D2D.Core.Models.CompatibilityVerdict verdict) => verdict switch
+    {
+        U7D2D.Core.Models.CompatibilityVerdict.Incompatible => Vm.T("verdict.incompatible"),
+        U7D2D.Core.Models.CompatibilityVerdict.LikelyIncompatible => Vm.T("verdict.likelyIncompatible"),
+        U7D2D.Core.Models.CompatibilityVerdict.Risky => Vm.T("verdict.risky"),
+        U7D2D.Core.Models.CompatibilityVerdict.LikelyCompatible => Vm.T("verdict.likelyCompatible"),
+        U7D2D.Core.Models.CompatibilityVerdict.Compatible => Vm.T("verdict.compatible"),
+        _ => Vm.T("verdict.unknown")
+    };
+
+    private string SeverityLabel(U7D2D.Core.Models.FindingSeverity severity) => severity switch
+    {
+        U7D2D.Core.Models.FindingSeverity.Critical => Vm.T("sev.critical"),
+        U7D2D.Core.Models.FindingSeverity.High => Vm.T("sev.high"),
+        U7D2D.Core.Models.FindingSeverity.Medium => Vm.T("sev.medium"),
+        U7D2D.Core.Models.FindingSeverity.Low => Vm.T("sev.low"),
+        _ => Vm.T("sev.info")
+    };
+}

@@ -1,0 +1,183 @@
+@page "/library"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+
+<PageTitle>@Vm.T("title.library")</PageTitle>
+
+<div class="page">
+    <div class="toolbar">
+        <div class="search-box">
+            <Icon Name="search" Size="16" />
+            <input type="text" placeholder="@Vm.T("lib2.search")" @bind="Vm.SearchText" @bind:event="oninput" />
+        </div>
+
+        <div class="filter-chips">
+            <button class="chip-btn @(Vm.LibraryFilter == "all" ? "active" : "")" type="button" @onclick='() => Vm.SetLibraryFilter("all")'>@Vm.T("lib.all")</button>
+            <button class="chip-btn @(Vm.LibraryFilter == "new" ? "active" : "")" type="button" @onclick='() => Vm.SetLibraryFilter("new")'>@Vm.T("lib.notInstalled")</button>
+            <button class="chip-btn @(Vm.LibraryFilter == "installed" ? "active" : "")" type="button" @onclick='() => Vm.SetLibraryFilter("installed")'>@Vm.T("lib.installed")</button>
+            <button class="chip-btn @(Vm.LibraryFilter == "updates" ? "active" : "")" type="button" @onclick='() => Vm.SetLibraryFilter("updates")'>
+                @Vm.T("lib2.updates") @(Vm.UpdatesCount > 0 ? $"({Vm.UpdatesCount})" : "")
+            </button>
+            <button class="chip-btn @(Vm.LibraryFilter == "code" ? "active" : "")" type="button" @onclick='() => Vm.SetLibraryFilter("code")'>@Vm.T("lib.withDll")</button>
+        </div>
+
+        <div class="toolbar-right">
+            <select class="select" @bind="Vm.SortMode">
+                <option value="name">@Vm.T("lib.sortName")</option>
+                <option value="size">@Vm.T("lib.sortSize")</option>
+                <option value="date">@Vm.T("lib.sortDate")</option>
+                <option value="files">@Vm.T("lib.sortFiles")</option>
+            </select>
+        </div>
+    </div>
+
+    @if (Vm.Scan is not null && Vm.Scan.ArchivesFailed > 0)
+    {
+        <div class="alert-strip">
+            <Icon Name="alert" Size="18" />
+            <div class="alert-body">
+                <strong>@Vm.T("lib.readFailed") @Plurals.Archives(Vm.Scan.ArchivesFailed)</strong>
+                <ul>
+                    @foreach (var failed in Vm.Scan.Archives.Where(a => !a.Success).Take(4))
+                    {
+                        <li><span class="mono">@Path.GetFileName(failed.ArchivePath)</span> — @failed.Error</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    @if (Vm.IsScanning)
+    {
+        <div class="list-head">
+            <div class="skeleton-line w30"></div>
+            <div class="skeleton-line w20"></div>
+        </div>
+        <div class="mod-grid">
+            @for (var i = 0; i < 6; i++)
+            {
+                <div class="mod-card skeleton">
+                    <div class="skeleton-box check"></div>
+                    <div class="mod-main">
+                        <div class="skeleton-line w60"></div>
+                        <div class="skeleton-line w40"></div>
+                        <div class="skeleton-line w90"></div>
+                        <div class="skeleton-line w70"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (Vm.IsEmptyLibrary)
+    {
+        <div class="empty-state card">
+            <div class="empty-icon"><Icon Name="archive" Size="34" /></div>
+            <h2>@Vm.T("lib.empty")</h2>
+            <p>@Vm.T("lib.emptyHint")</p>
+            <div class="empty-actions">
+                <button class="btn primary" type="button" @onclick="() => Vm.ScanAsync()" disabled="@(!Vm.CanScan)">
+                    <Icon Name="refresh" Size="16" /> @Vm.T("nav.scan")
+                </button>
+                <button class="btn ghost" type="button" @onclick="() => Vm.AddArchivePathAsync()">
+                    <Icon Name="plus" Size="16" /> @Vm.T("lib2.addFolder")
+                </button>
+            </div>
+            @if (!Vm.Settings.ValidArchivePaths.Any())
+            {
+                <p class="empty-hint">@Vm.T("lib.noFolders")</p>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="list-head">
+            <div class="list-count">
+                <strong>@Vm.FilteredMods.Count</strong> @Vm.T("lib2.of") @Plurals.Mods(Vm.AvailableCount)
+                @if (Vm.LibraryGroups.Count > 1)
+                {
+                    <span class="muted">&nbsp;· @Vm.T("lib.sources"): @Vm.LibraryGroups.Count</span>
+                }
+                @if (Vm.Scan is not null)
+                {
+                    <span class="muted">&nbsp;· @Vm.T("lib.archives"): @Vm.Scan.ArchivesScanned · @Vm.T("lib.errors"): @Vm.Scan.ArchivesFailed</span>
+                }
+            </div>
+            <div class="list-actions">
+                <button class="btn ghost sm" type="button" @onclick="() => Vm.SelectAllVisible(true)">
+                    <Icon Name="check" Size="14" /> @Vm.T("lib.selectAll")
+                </button>
+                <button class="btn ghost sm" type="button" @onclick="() => Vm.SelectAllVisible(false)">
+                    <Icon Name="x" Size="14" /> @Vm.T("lib.clearSelection")
+                </button>
+            </div>
+        </div>
+
+        @foreach (var group in Vm.LibraryGroups)
+        {
+            <section class="mod-group" @key="group.Root">
+                <div class="group-head">
+                    <button class="group-toggle" type="button" title="@Vm.T("lib2.toggle")" @onclick="() => group.IsExpanded = !group.IsExpanded">
+                        <Icon Name="@(group.IsExpanded ? "minus" : "plus")" Size="14" />
+                    </button>
+                    <div class="group-info">
+                        <div class="group-title">
+                            <Icon Name="folder" Size="15" />
+                            <span>@group.Title</span>
+                        </div>
+                        <div class="group-path mono">@group.SourcePath</div>
+                    </div>
+                    <div class="group-meta">
+                        <span class="chip">@Plurals.Mods(group.Count)</span>
+                        @if (group.HasSelection)
+                        {
+                            <span class="chip accent">@Vm.T("lib.selected"): @group.SelectedCount</span>
+                        }
+                    </div>
+                    <label class="group-select">
+                        <input type="checkbox" checked="@group.AllSelected"
+                               @onchange="e => group.SelectAll(e.Value is bool b && b)" />
+                        <span>@Vm.T("lib.selectAll")</span>
+                    </label>
+                </div>
+
+                @if (group.IsExpanded)
+                {
+                    <div class="mod-grid">
+                        @foreach (var card in group.Mods)
+                        {
+                            <ModCard Card="card" @key="card.Package.Id + card.Package.ArchivePath + card.Package.RootInArchive" />
+                        }
+                    </div>
+                }
+            </section>
+        }
+
+        @if (Vm.FilteredMods.Count == 0)
+        {
+            <div class="empty-state small">
+                <p>@Vm.T("lib.noMatch")</p>
+            </div>
+        }
+    }
+</div>
+
+@if (Vm.HasSelection)
+{
+    <div class="bulk-bar">
+        <div class="bulk-info">
+            <Icon Name="layers" Size="18" />
+            <span>@Vm.T("lib.selectedLabel") <strong>@Vm.SelectedCount</strong></span>
+        </div>
+        <div class="bulk-actions">
+            <button class="btn ghost sm" type="button" @onclick="() => Vm.ClearSelection()">@Vm.T("lib.clearSelection")</button>
+            <button class="btn primary" type="button" @onclick="() => Vm.InstallSelectedAsync()" disabled="@Vm.IsBusy">
+                <Icon Name="download" Size="16" /> @Vm.T("lib2.installSelected")
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+}

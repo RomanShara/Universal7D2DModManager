@@ -1,0 +1,21 @@
+<Window x:Class="U7D2D.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:blazor="clr-namespace:Microsoft.AspNetCore.Components.WebView.Wpf;assembly=Microsoft.AspNetCore.Components.WebView.Wpf"
+        xmlns:local="clr-namespace:U7D2D.App"
+        Title="Universal 7 Days to Die Mod Manager"
+        Height="900" Width="1440" MinHeight="520" MinWidth="880"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        WindowState="Normal"
+        Background="#0A0C10"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Grid Background="#0A0C10">
+        <blazor:BlazorWebView x:Name="BlazorView" HostPage="wwwroot/index.html">
+            <blazor:BlazorWebView.RootComponents>
+                <blazor:RootComponent Selector="#app" ComponentType="{x:Type local:Components.AppRoot}" />
+            </blazor:BlazorWebView.RootComponents>
+        </blazor:BlazorWebView>
+    </Grid>
+</Window>

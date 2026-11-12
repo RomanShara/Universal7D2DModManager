@@ -1,0 +1,28 @@
+@using U7D2D.App.Services
+@implements IDisposable
+@inject DialogService Dialogs
+
+@if (Dialogs.Current is { } request)
+{
+    <div class="modal-backdrop" @onclick="() => Dialogs.Resolve(false)">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="modal-icon @(request.Destructive ? "danger" : "info")">
+                <Icon Name="@(request.Destructive ? "alert" : "info")" Size="22" />
+            </div>
+            <h3 class="modal-title">@request.Title</h3>
+            <p class="modal-text">@request.Message</p>
+            <div class="modal-actions">
+                <button class="btn ghost" type="button" @onclick="() => Dialogs.Resolve(false)">@request.CancelText</button>
+                <button class="btn @(request.Destructive ? "danger" : "primary")" type="button" @onclick="() => Dialogs.Resolve(true)">@request.ConfirmText</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Dialogs.Changed += OnChanged;
+
+    private void OnChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Dialogs.Changed -= OnChanged;
+}

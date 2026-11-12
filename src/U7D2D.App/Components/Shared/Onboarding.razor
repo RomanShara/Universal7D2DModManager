@@ -1,0 +1,78 @@
+@inject AppViewModel Vm
+
+@if (Vm.SetupRequired)
+{
+    <div class="modal-backdrop onboarding-backdrop">
+        <div class="onboarding-card">
+            <div class="onboarding-head">
+                <div class="brand-mark large">7D</div>
+                <div>
+                    <h2>@Vm.T("ob.title")</h2>
+                    <p>@Vm.T("ob.note")</p>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>@Vm.T("ob.gameFolder")</label>
+                <div class="input-row">
+                    <input type="text" value="@Vm.Settings.GamePath" placeholder="@Vm.T("ob.gamePlaceholder")"
+                           @onchange="e => Vm.Settings.GamePath = e.Value?.ToString() ?? string.Empty" />
+                    <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("game")'>
+                        <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
+                    </button>
+                </div>
+                <div class="field-hint">@Vm.T("ob.gameHint")</div>
+            </div>
+
+            <div class="field">
+                <label>@Vm.T("ob.modsFolder")</label>
+                <div class="input-row">
+                    <input type="text" value="@Vm.Settings.ModsPath" placeholder="@Vm.T("ob.modsPlaceholder")"
+                           @onchange="e => Vm.Settings.ModsPath = e.Value?.ToString() ?? string.Empty" />
+                    <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("mods")'>
+                        <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
+                    </button>
+                </div>
+                <div class="field-hint">@Vm.T("ob.modsHint")</div>
+            </div>
+
+            <div class="field">
+                <label>@Vm.T("ob.backupsFolder")</label>
+                <div class="input-row">
+                    <input type="text" value="@Vm.Settings.BackupsPath" placeholder="@Vm.T("ob.emptyBackups")"
+                           @onchange="e => Vm.Settings.BackupsPath = e.Value?.ToString() ?? string.Empty" />
+                    <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("backups")'>
+                        <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
+                    </button>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>@Vm.T("ob.archiveFolders") <span class="hint">@Vm.Settings.ArchivePaths.Count / @U7D2D.Core.Models.AppSettings.MaxArchivePaths</span></label>
+                @foreach (var path in Vm.Settings.ArchivePaths.ToList())
+                {
+                    <div class="path-row" @key="path">
+                        <Icon Name="archive" Size="15" />
+                        <span class="path-text">@path</span>
+                        <button class="icon-btn" type="button" title="@Vm.T("set.delete")" @onclick="() => Vm.RemoveArchivePath(path)">
+                            <Icon Name="x" Size="14" />
+                        </button>
+                    </div>
+                }
+                @if (Vm.Settings.ArchivePaths.Count < U7D2D.Core.Models.AppSettings.MaxArchivePaths)
+                {
+                    <button class="btn ghost wide dashed" type="button" @onclick="() => Vm.AddArchivePathAsync()">
+                        <Icon Name="plus" Size="16" /> @Vm.T("set.addFolder")
+                    </button>
+                }
+                <div class="field-hint">@Vm.T("ob.archiveHint")</div>
+            </div>
+
+            <div class="onboarding-actions">
+                <button class="btn primary wide" type="button" @onclick="() => Vm.CompleteSetupAsync()">
+                    <Icon Name="check" Size="16" /> @Vm.T("ob.start")
+                </button>
+            </div>
+        </div>
+    </div>
+}

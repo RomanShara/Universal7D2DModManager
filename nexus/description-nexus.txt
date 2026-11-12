@@ -1,0 +1,115 @@
+[img]HEADER_IMAGE_URL[/img]
+
+[center][size=5][b]Universal 7 Days to Die Mod Manager[/b][/size]
+[size=2]Portable tool for Windows. Built and tested on 7 Days to Die V 3.4.0.[/size][/center]
+
+I got tired of the usual routine: download a mod, unpack it, drop it into Mods, start the game, get a
+crash, then dig through the log trying to work out which of eighty mods broke something. This tool
+came out of that. It keeps the archive folder, the installed mods and the compatibility check in one
+place, and it tries to answer the only question that matters: will this mod work next to the others.
+
+The analysis is the part I spent the most time on. Two mods touching the same file is easy to detect
+and usually means nothing. What matters is what happens to a specific node. So the manager reads every
+XPath patch, replays them on a copy of the game config in the order the game loads mods, and reports
+the result: which value survives, which edit is lost, and which patch does not find its target at all.
+
+That last case is the most common silent failure. A mod looks installed, the game starts fine, and
+some feature just does not work because its patch pointed at a node that no longer exists. The report
+tries to separate a missing companion mod from a node renamed by a game update, so you do not go
+looking for the wrong problem.
+
+Everything else is routine housekeeping:
+
+[list]
+[*]scanning folders with mod archives (ZIP, 7Z, RAR, TAR, GZ, BZ2, XZ) and installing them with a backup
+[*]a list of what is actually in the Mods folder, with versions, DLLs and update checks against Nexus
+[*]editing mod config values, with a copy of the file made before writing
+[*]backups you can restore or delete later
+[*]starting the game, with Easy Anti-Cheat on or off
+[/list]
+
+The interface is in English and Ukrainian, the switch is in the left menu. The manager itself never
+edits your mods. Conflict fixes are written as a separate patch mod, and anything that touches the
+game folder asks first.
+
+Requirements are short. Windows 10 or 11, 64-bit. The .NET runtime is inside the executable, so there
+is nothing to install. WebView2 is present on Windows 11 and current Windows 10 builds; on a stripped
+system you may need to install it from Microsoft. And of course an installed copy of the game. The
+version is read from the game files themselves, which matters for repacks that ship without
+version.txt. The tool was built and tested against V 3.4.0. Older versions have not been checked,
+so treat anything below 3.4 as unsupported for now.
+
+Installation: put the executable in any folder you can write to and run it. On first start it asks
+for the game folder and for the folders where your mod archives are kept. You can point it at up to
+ten such folders, and it only reads what is already on your disk: the manager never downloads mods.
+Until at least one folder is added the library stays empty and there is nothing to scan. After that
+it creates a Data folder next to the executable and keeps the database, settings, logs and backups
+there. Nothing is written to AppData or to the system drive, and removing the tool is just deleting
+the folder.
+
+One thing worth saying plainly: this is not a mod, and it does not need EAC disabled. It reads files
+and launches the game the same way a shortcut would.
+
+If you find a conflict that the manager reports but that does not actually break anything, or the
+other way round, there is a Save diagnostics button in Settings. It writes one text file with the
+version, folders, detected game version, installed mods and the last operations. Attach it together
+with the names of the two mods. Precision is the whole point here, and a wrong warning is worse than
+no warning.
+
+______________________________________________________________________________
+
+[center][size=4][b]Українська[/b][/size][/center]
+
+[center][size=2]Портативний інструмент для Windows. Зроблено й перевірено на 7 Days to Die V 3.4.0.[/size][/center]
+
+Мені набридла звична послідовність: завантажити мод, розпакувати, закинути в Mods, запустити гру,
+отримати виліт і потім довго читати журнал, намагаючись зрозуміти, котрий із вісімдесяти модів щось
+зламав. Цей інструмент виріс саме з цього. Він тримає папку з архівами, встановлені моди й перевірку
+сумісності в одному місці та намагається відповісти на єдине питання, яке має значення: чи
+працюватиме цей мод поряд з іншими.
+
+Найбільше часу я витратив на аналіз. Два моди, що чіпають один файл, виявити легко, і зазвичай це
+нічого не означає. Важливо те, що стається з конкретним вузлом. Тому менеджер читає кожен XPath-патч,
+відтворює їх на копії конфігурації гри в тому порядку, у якому гра завантажує моди, і показує
+результат: яке значення залишиться, яка правка зникне і який патч узагалі не знаходить ціль.
+
+Останній випадок трапляється найчастіше і проходить непоміченим. Мод ніби встановлено, гра
+запускається, а якась функція просто не працює, бо її патч вказував на вузол, якого вже немає. Звіт
+намагається відрізнити відсутній супутній мод від вузла, перейменованого оновленням гри, щоб ви не
+шукали проблему не там.
+
+Решта це звичайне господарство:
+
+[list]
+[*]сканування папок з архівами модів (ZIP, 7Z, RAR, TAR, GZ, BZ2, XZ) і встановлення з резервною копією
+[*]список того, що насправді лежить у папці Mods, з версіями, DLL і перевіркою оновлень на Nexus
+[*]редагування значень у конфігах модів із копією файлу перед записом
+[*]резервні копії, які можна відновити або видалити
+[*]запуск гри, з Easy Anti-Cheat або без нього
+[/list]
+
+Інтерфейс англійською та українською, перемикач у лівому меню. Сам менеджер ваші моди не редагує.
+Виправлення конфліктів зберігаються окремим патч-модом, а будь-яка дія з папкою гри питає
+підтвердження.
+
+Вимоги короткі. Windows 10 або 11, 64-біт. Середовище .NET лежить усередині виконуваного файлу, тому
+ставити нічого не потрібно. WebView2 є у Windows 11 і сучасних збірках Windows 10; на врізаній
+системі його, можливо, доведеться встановити з сайту Microsoft. Ну і звісно встановлена гра. Версія
+читається з файлів самої гри, що важливо для репаків без version.txt. Інструмент зроблено й
+перевірено на V 3.4.0. Старіші версії не перевірялися, тому все, що нижче 3.4, поки без
+підтримки.
+
+Встановлення: покладіть файл у будь-яку папку із правом запису та запустіть. Під час першого старту
+він попросить папку гри та папки, де лежать архіви з модами. Таких папок можна вказати до десяти, і
+менеджер лише читає те, що вже є на диску: сам він моди не завантажує. Поки не додано хоч одну
+папку, бібліотека порожня і сканувати нічого. Після цього він створить поруч папку Data і триматиме
+там базу даних, налаштування, журнали й резервні копії. У AppData чи на системний диск нічого не
+пишеться, а видалення зводиться до видалення папки.
+
+Варто сказати прямо: це не мод, і вимикати EAC для нього не потрібно. Він читає файли та запускає гру
+так само, як це робив би ярлик.
+
+Якщо знайдете конфлікт, який менеджер показує, але насправді нічого не ламає, або навпаки, у
+налаштуваннях є кнопка «Зберегти діагностику». Вона записує один текстовий файл із версією, папками,
+визначеною версією гри, встановленими модами й останніми операціями. Додайте його разом із назвами
+двох модів. Точність тут і є сенсом роботи, а хибне попередження гірше за його відсутність.

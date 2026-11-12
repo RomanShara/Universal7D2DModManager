@@ -1,0 +1,200 @@
+@page "/"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+@inject NavigationManager Nav
+
+<PageTitle>@Vm.T("title.overview")</PageTitle>
+
+<div class="page">
+    @if (Vm.GameReady && string.IsNullOrWhiteSpace(Vm.Game?.VersionString))
+    {
+        <div class="alert-strip">
+            <Icon Name="info" Size="18" />
+            <div class="alert-body">
+                <strong>@Vm.T("dash.versionUnknown")</strong>
+                <div class="small">@Vm.T("dash.versionHint")</div>
+                <button class="btn ghost sm" type="button" @onclick='() => Nav.NavigateTo("settings")' style="margin-top:8px">
+                    <Icon Name="sliders" Size="14" /> @Vm.T("dash.setVersion")
+                </button>
+            </div>
+        </div>
+    }
+
+    <div class="hero-grid">
+        <section class="card hero-card">
+            <div class="hero-top">
+                <div class="hero-icon"><Icon Name="gamepad" Size="26" /></div>
+                <div>
+                    <h2>7 Days to Die</h2>
+                    <p class="muted">@Vm.GameVersionText</p>
+                </div>
+                <span class="badge @(Vm.GameReady ? "installed" : "critical")">
+                    @(Vm.GameReady ? Vm.T("shell.gameDetected") : Vm.T("shell.gameMissing"))
+                </span>
+            </div>
+
+            <div class="kv-list">
+                <div class="kv">
+                    <span>@Vm.T("dash.gameFolder")</span>
+                    <button class="link-btn" type="button" title="@Vm.Settings.GamePath" @onclick="() => Vm.OpenFolder(Vm.Settings.GamePath)">@Vm.Settings.GamePath</button>
+                </div>
+                <div class="kv">
+                    <span>@Vm.T("dash.modsFolder")</span>
+                    <button class="link-btn" type="button" title="@Vm.Settings.ModsPath" @onclick="() => Vm.OpenFolder(Vm.Settings.ModsPath)">@Vm.ModsPathText</button>
+                </div>
+                <div class="kv">
+                    <span>@Vm.T("dash.deepApi")</span>
+                    <span class="@(Vm.GameDeepAnalysis ? "ok-text" : "warn-text")">
+                        @(Vm.GameDeepAnalysis ? Vm.T("shell.deepAvailable") : Vm.T("shell.deepUnavailable"))
+                    </span>
+                </div>
+                <div class="kv">
+                    <span>@Vm.T("dash.archiveFolders")</span>
+                    <span>@Vm.Settings.ArchivePaths.Count</span>
+                </div>
+            </div>
+
+            <div class="hero-actions">
+                <button class="btn primary" type="button" @onclick="() => Vm.ScanAsync()" disabled="@(!Vm.CanScan)">
+                    <Icon Name="refresh" Size="16" /> @Vm.T("shell.scan")
+                </button>
+                <button class="btn ghost" type="button" @onclick='() => Nav.NavigateTo("settings")'>
+                    <Icon Name="sliders" Size="16" /> @Vm.T("shell.pathSettings")
+                </button>
+            </div>
+        </section>
+
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon accent"><Icon Name="check-square" Size="20" /></div>
+                <div class="stat-value">@Vm.InstalledCount</div>
+                <div class="stat-label">@Vm.T("dash.modsInstalled")</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><Icon Name="archive" Size="20" /></div>
+                <div class="stat-value">@Vm.AvailableCount</div>
+                <div class="stat-label">@Vm.T("dash.modsInArchives")</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><Icon Name="box" Size="20" /></div>
+                <div class="stat-value">@Vm.ArchivesCount</div>
+                <div class="stat-label">@Vm.T("dash.archivesScanned")</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><Icon Name="database" Size="20" /></div>
+                <div class="stat-value">@Vm.BackupsCount</div>
+                <div class="stat-label">@Vm.T("dash.backups")</div>
+            </div>
+        </section>
+    </div>
+
+    <div class="two-col">
+        <section class="card">
+            <div class="card-head">
+                <h3>@Vm.T("dash.quickActions")</h3>
+            </div>
+            <div class="quick-actions">
+                <button class="quick" type="button" @onclick='() => Nav.NavigateTo("library")'>
+                    <Icon Name="archive" Size="18" />
+                    <div>
+                        <strong>@Vm.T("dash.library")</strong>
+                        <span>@Vm.T("dash.libraryHint")</span>
+                    </div>
+                    <Icon Name="arrow-right" Size="16" />
+                </button>
+                <button class="quick" type="button" @onclick='() => Nav.NavigateTo("installed")'>
+                    <Icon Name="check-square" Size="18" />
+                    <div>
+                        <strong>@Vm.T("dash.installed")</strong>
+                        <span>@Vm.T("dash.installedHint")</span>
+                    </div>
+                    <Icon Name="arrow-right" Size="16" />
+                </button>
+                <button class="quick" type="button" @onclick='() => Nav.NavigateTo("analysis")'>
+                    <Icon Name="shield" Size="18" />
+                    <div>
+                        <strong>@Vm.T("dash.analysis")</strong>
+                        <span>@Vm.T("dash.analysisHint")</span>
+                    </div>
+                    <Icon Name="arrow-right" Size="16" />
+                </button>
+                <button class="quick" type="button" @onclick='() => Nav.NavigateTo("backups")'>
+                    <Icon Name="database" Size="18" />
+                    <div>
+                        <strong>@Vm.T("dash.backups")</strong>
+                        <span>@Vm.T("dash.backupsHint")</span>
+                    </div>
+                    <Icon Name="arrow-right" Size="16" />
+                </button>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head">
+                <h3>@Vm.T("dash.log")</h3>
+                <button class="btn ghost sm" type="button" @onclick="() => Vm.RefreshLogAsync()">
+                    <Icon Name="refresh" Size="14" /> @Vm.T("shell.refresh")
+                </button>
+            </div>
+
+            @if (Vm.LogEntries.Count == 0)
+            {
+                <p class="muted">@Vm.T("dash.logEmpty")</p>
+            }
+            else
+            {
+                <ul class="log-list">
+                    @foreach (var entry in Vm.LogEntries.Take(12))
+                    {
+                        <li class="log-item">
+                            <span class="log-kind @entry.Kind">@entry.Kind</span>
+                            <div class="log-body">
+                                <div class="log-message">@entry.Message</div>
+                                <div class="log-time">@entry.TimestampUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")</div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    </div>
+
+    @if (Vm.Conflicts is not null)
+    {
+        <section class="card">
+            <div class="card-head">
+                <h3>@Vm.T("dash.conflicts")</h3>
+                <span class="badge @(Vm.Conflicts.Conflicts.Count == 0 ? "installed" : "risky")">
+                    @(Vm.Conflicts.Conflicts.Count == 0 ? Vm.T("shell.notFound") : $"{Vm.Conflicts.Conflicts.Count} {Vm.T("shell.records")}")
+                </span>
+            </div>
+            @if (Vm.Conflicts.Conflicts.Count == 0)
+            {
+                <p class="muted">@Vm.T("dash.noConflicts")</p>
+            }
+            else
+            {
+                <ul class="conflict-list">
+                    @foreach (var conflict in Vm.Conflicts.Conflicts.Take(6))
+                    {
+                        <li>
+                            <span class="severity @conflict.Severity.ToString().ToLowerInvariant()">@conflict.Severity</span>
+                            <span class="conflict-subject">@conflict.Subject</span>
+                            <span class="muted">@conflict.ModA ↔ @conflict.ModB</span>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+</div>
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Vm.InitializeAsync();
+    }
+}

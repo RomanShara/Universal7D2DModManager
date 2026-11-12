@@ -10,7 +10,7 @@ dist/
 .vs/
 
 # Runtime data written next to the executable
-Data/
+/Data/
 *.db
 *.db-shm
 *.db-wal

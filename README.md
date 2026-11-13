@@ -112,4 +112,4 @@ Notes for reviewers
 License
 -------
 
-MIT, see LICENSE.
+Universal Mod Tools Proprietary License, see LICENSE.

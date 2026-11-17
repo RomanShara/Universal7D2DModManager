@@ -18,8 +18,87 @@ public sealed class LayoutTests
     private static readonly string LocalApp = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "u7d2d-layout-tests");
 
-    private const string DriveD = @"D:\_u7d2d_layout_tests";
-    private const string DriveE = @"E:\_u7d2d_layout_tests";
+    // Tests must run on any machine. CI runners often have a single fixed drive, so the "another
+    // drive" roles are filled from whatever volumes exist and fall back to the temp folder when a
+    // volume is missing or not writable. The layout logic is about separate roots, not about the
+    // literal letters C, D and E.
+    private static readonly string[] VolumeBases = BuildVolumeBases();
+
+    private static string VolumeBase(int slot) => VolumeBases[slot % VolumeBases.Length];
+
+    private static string[] BuildVolumeBases()
+    {
+        List<string> roots;
+        try
+        {
+            roots = DriveInfo.GetDrives()
+                .Where(d => d.IsReady && d.DriveType == DriveType.Fixed)
+                .Select(d => d.RootDirectory.FullName)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            roots = new List<string>();
+        }
+
+        return ResolveBases(roots);
+    }
+
+    /// <summary>
+    /// Fills three "drive" slots from the roots that exist. With a single root all slots share it,
+    /// which is exactly what a CI runner with one fixed drive needs.
+    /// </summary>
+    private static string[] ResolveBases(IReadOnlyList<string> roots)
+    {
+        if (roots.Count == 0)
+            roots = new[] { Path.GetPathRoot(Path.GetTempPath()) ?? Path.GetTempPath() };
+
+        var bases = new string[Math.Max(3, roots.Count)];
+        for (var i = 0; i < bases.Length; i++)
+            bases[i] = PrepareBase(roots[i % roots.Count], i);
+
+        return bases;
+    }
+
+    [Fact]
+    public void A_single_volume_is_enough_for_the_layout_tests()
+    {
+        var single = Path.Combine(Path.GetTempPath(), $"u7d2d-single-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(single);
+
+        try
+        {
+            var bases = ResolveBases(new[] { single });
+
+            Assert.Equal(3, bases.Length);
+            Assert.All(bases, b => Assert.True(Directory.Exists(b)));
+            Assert.All(bases, b => Assert.StartsWith(single, b, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            try { Directory.Delete(single, true); } catch (Exception) { }
+        }
+    }
+
+    private static string PrepareBase(string volumeRoot, int slot)
+    {
+        var candidate = Path.Combine(volumeRoot, "_u7d2d_layout_tests");
+        try
+        {
+            Directory.CreateDirectory(candidate);
+            var probe = Path.Combine(candidate, $".probe-{slot}");
+            File.WriteAllText(probe, "x");
+            File.Delete(probe);
+            return candidate;
+        }
+        catch (Exception)
+        {
+            var fallback = Path.Combine(Path.GetTempPath(), $"_u7d2d_layout_tests_vol{slot}");
+            Directory.CreateDirectory(fallback);
+            return fallback;
+        }
+    }
 
     private sealed class Lab : IDisposable
     {
@@ -149,9 +228,9 @@ public sealed class LayoutTests
         var id = Guid.NewGuid().ToString("N")[..8];
         using var lab = CreateLab(
             Path.Combine(LocalApp, $"app-{id}"),
-            Path.Combine(DriveD, $"game-{id}"),
-            Path.Combine(DriveE, $"archives-{id}"),
-            Path.Combine(DriveE, $"backups-{id}"));
+            Path.Combine(VolumeBase(1), $"game-{id}"),
+            Path.Combine(VolumeBase(2), $"archives-{id}"),
+            Path.Combine(VolumeBase(2), $"backups-{id}"));
 
         InstallBackupRestore(lab, "ModA", "v1");
     }
@@ -161,9 +240,9 @@ public sealed class LayoutTests
     {
         var id = Guid.NewGuid().ToString("N")[..8];
         using var lab = CreateLab(
-            Path.Combine(DriveD, $"app-{id}"),
+            Path.Combine(VolumeBase(1), $"app-{id}"),
             Path.Combine(LocalApp, $"game-{id}"),
-            Path.Combine(DriveE, $"archives-{id}"),
+            Path.Combine(VolumeBase(2), $"archives-{id}"),
             Path.Combine(LocalApp, $"backups-{id}"));
 
         InstallBackupRestore(lab, "ModA", "v1");
@@ -175,9 +254,9 @@ public sealed class LayoutTests
         var id = Guid.NewGuid().ToString("N")[..8];
         using var lab = CreateLab(
             Path.Combine(LocalApp, $"app-{id}"),
-            Path.Combine(DriveD, $"game-{id}"),
-            Path.Combine(DriveD, $"archives-{id}"),
-            Path.Combine(DriveE, $"backups-{id}"));
+            Path.Combine(VolumeBase(1), $"game-{id}"),
+            Path.Combine(VolumeBase(1), $"archives-{id}"),
+            Path.Combine(VolumeBase(2), $"backups-{id}"));
 
         InstallBackupRestore(lab, "ModA", "v1");
     }
@@ -218,7 +297,7 @@ public sealed class LayoutTests
         var longName = string.Concat(Enumerable.Repeat("Очень длинная папка с пробелами и кириллицей ", 5)).Trim();
 
         // Around 300 characters with the files inside: longer than the old MAX_PATH limit.
-        var root = Path.Combine(DriveD, $"{longName} {id}");
+        var root = Path.Combine(VolumeBase(1), $"{longName} {id}");
 
         try
         {
@@ -243,7 +322,7 @@ public sealed class LayoutTests
     {
         var id = Guid.NewGuid().ToString("N")[..8];
         var prepared = Path.Combine(LocalApp, $"prepared-{id}");
-        var targetRoot = Path.Combine(DriveD, $"target-{id}");
+        var targetRoot = Path.Combine(VolumeBase(1), $"target-{id}");
         var target = Path.Combine(targetRoot, "ModA");
 
         Directory.CreateDirectory(prepared);

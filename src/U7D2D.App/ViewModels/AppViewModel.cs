@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using U7D2D.App.Services;
 using U7D2D.Core;
 using U7D2D.Core.Analysis;
+using U7D2D.Core.Data;
 using U7D2D.Core.Models;
 using U7D2D.Core.Mods;
 using U7D2D.Core.Nexus;
@@ -18,23 +19,27 @@ public partial class AppViewModel : ObservableObject
     private readonly IShellService _shell;
     private readonly ToastService _toasts;
     private readonly DialogService _dialogs;
+    private readonly Database _database;
+    private bool _databaseRecoveryDismissed;
 
     public AppViewModel(
         ModManagerService manager,
         IFolderPicker picker,
         IShellService shell,
         ToastService toasts,
-        DialogService dialogs)
+        DialogService dialogs,
+        Database database)
     {
         _manager = manager;
         _picker = picker;
         _shell = shell;
         _toasts = toasts;
         _dialogs = dialogs;
+        _database = database;
 
         Settings = manager.ReloadSettings();
         SetupRequired = !Settings.SetupCompleted;
-        NexusApiKeyInput = manager.GetNexusApiKey();
+        RefreshNexusAccountState();
 
         // Applied here, before the first render, so the shell and the pages start in the same language.
         ApplyStoredLanguage();
@@ -47,6 +52,19 @@ public partial class AppViewModel : ObservableObject
     }
 
     public ObservableCollection<ModCardViewModel> AvailableMods { get; } = new();
+
+    /// <summary>The database was replaced at startup; the banner stays until the user dismisses it.</summary>
+    public bool ShowDatabaseRecovery => _database.Recovery is not null && !_databaseRecoveryDismissed;
+
+    public string DatabaseRecoveryText => _database.Recovery is { } recovery
+        ? F("app.dbRecoveredText", recovery.QuarantinePath)
+        : string.Empty;
+
+    public void DismissDatabaseRecovery()
+    {
+        _databaseRecoveryDismissed = true;
+        OnPropertyChanged(nameof(ShowDatabaseRecovery));
+    }
     public ObservableCollection<ModGroupViewModel> LibraryGroups { get; } = new();
 
     private readonly HashSet<string> _cardKeys = new(StringComparer.OrdinalIgnoreCase);
@@ -79,6 +97,7 @@ public partial class AppViewModel : ObservableObject
     [ObservableProperty] private ModConfigFile? _configFile;
     [ObservableProperty] private bool _isConfigLoading;
     [ObservableProperty] private string? _configNotice;
+    [ObservableProperty] private bool _backupsFolderMissing;
 
     public bool HasConfigChanges => ConfigFields.Any(f => f.IsDirty);
 
@@ -93,6 +112,34 @@ public partial class AppViewModel : ObservableObject
     public int UpdatesCount => AvailableMods.Count(m => m.UpdateAvailable);
 
     public string GameVersionText => Game?.VersionString ?? T("vm.versionUndefined");
+
+    private static readonly Version AppVersion =
+        typeof(AppViewModel).Assembly.GetName().Version ?? new Version(1, 0, 0);
+
+    private static readonly string BuildStamp = ResolveBuildStamp();
+
+    /// <summary>Short version for the sidebar chip, for example 1.8.5.</summary>
+    public string VersionText => AppVersion.ToString(3);
+
+    /// <summary>Full version and the build time, so two builds with the same version are distinguishable.</summary>
+    public string VersionTooltip => F("app.versionTooltip", AppVersion.ToString(),
+        string.IsNullOrEmpty(BuildStamp) ? "—" : BuildStamp);
+
+    private static string ResolveBuildStamp()
+    {
+        try
+        {
+            var path = typeof(AppViewModel).Assembly.Location;
+            if (string.IsNullOrWhiteSpace(path)) path = Environment.ProcessPath;
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return string.Empty;
+
+            return File.GetLastWriteTime(path).ToString("dd.MM.yyyy HH:mm");
+        }
+        catch (Exception)
+        {
+            return string.Empty;
+        }
+    }
     public bool GameReady => Game?.IsValid == true;
     public bool GameDeepAnalysis => !string.IsNullOrEmpty(Game?.ManagedAssemblyPath);
     public string ModsPathText => string.IsNullOrWhiteSpace(Settings.ModsPath) ? T("vm.pathNotSet") : Settings.ModsPath;
@@ -109,7 +156,7 @@ public partial class AppViewModel : ObservableObject
             Game = _manager.InspectGame();
             Settings = _manager.ReloadSettings();
         });
-        NexusApiKeyInput = _manager.GetNexusApiKey();
+        RefreshNexusAccountState();
 
         await RefreshInstalledAsync();
         await RefreshBackupsAsync();
@@ -243,8 +290,7 @@ public partial class AppViewModel : ObservableObject
         Settings.GamePath = Settings.GamePath?.Trim() ?? string.Empty;
         Settings.ModsPath = Settings.ModsPath?.Trim() ?? string.Empty;
         Settings.BackupsPath = Settings.BackupsPath?.Trim() ?? string.Empty;
-        // The key lives in AppSettings only in DPAPI-encrypted form.
-        Settings.NexusApiKey = NexusKeyProtection.Protect(NexusApiKeyInput?.Trim() ?? string.Empty);
+        // OAuth tokens are stored (DPAPI-encrypted) by the sign-in flow, not here.
         _manager.SaveSettings(Settings);
 
         // Re-inspect the installation immediately: otherwise a newly typed game path keeps showing
@@ -453,6 +499,69 @@ public partial class AppViewModel : ObservableObject
 
     // ---------------------------------------------------------------- install / uninstall
 
+    // ---------------------------------------------------------------- ambiguous archive root
+
+    [ObservableProperty] private bool _isRootChoiceOpen;
+    [ObservableProperty] private string _rootChoiceArchive = string.Empty;
+    [ObservableProperty] private IReadOnlyList<ModRootCandidate> _rootChoiceCandidates = Array.Empty<ModRootCandidate>();
+    [ObservableProperty] private ModRootCandidate? _rootChoiceSelected;
+
+    private TaskCompletionSource<ModRootCandidate?>? _rootChoiceCompletion;
+
+    public bool RootChoiceCanInstall => RootChoiceSelected is not null;
+
+    private async Task<ModRootCandidate?> AskRootChoiceAsync(ModPackage package)
+    {
+        var remembered = _manager.GetRememberedRoot(package.Fingerprint);
+        var selected =
+            (remembered is { } saved
+                ? package.RootCandidates.FirstOrDefault(c =>
+                    string.Equals(c.Name, saved.Name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(c.ContentRoot, saved.ContentRoot, StringComparison.OrdinalIgnoreCase))
+                : null)
+            ?? package.RootCandidates.FirstOrDefault(c => c.IsDefault)
+            ?? package.RootCandidates.FirstOrDefault();
+
+        _rootChoiceCompletion = new TaskCompletionSource<ModRootCandidate?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        RootChoiceArchive = package.ArchiveFileName;
+        RootChoiceCandidates = package.RootCandidates;
+        RootChoiceSelected = selected;
+        IsRootChoiceOpen = true;
+
+        return await _rootChoiceCompletion.Task;
+    }
+
+    public void SelectRootChoice(ModRootCandidate candidate)
+    {
+        RootChoiceSelected = candidate;
+        OnPropertyChanged(nameof(RootChoiceCanInstall));
+    }
+
+    public void ConfirmRootChoice()
+    {
+        var completion = _rootChoiceCompletion;
+        var selected = RootChoiceSelected;
+        CloseRootChoice();
+        completion?.TrySetResult(selected);
+    }
+
+    public void SkipRootChoice()
+    {
+        var completion = _rootChoiceCompletion;
+        CloseRootChoice();
+        completion?.TrySetResult(null);
+    }
+
+    private void CloseRootChoice()
+    {
+        IsRootChoiceOpen = false;
+        RootChoiceCandidates = Array.Empty<ModRootCandidate>();
+        RootChoiceSelected = null;
+        _rootChoiceCompletion = null;
+    }
+
     public async Task InstallSelectedAsync()
     {
         var cards = AvailableMods.Where(c => c.IsSelected).ToList();
@@ -477,31 +586,67 @@ public partial class AppViewModel : ObservableObject
             return;
         }
 
-        // The same mod may exist in several archives (zip + 7z + tar.gz). Install one copy only.
-        var unique = new List<ModCardViewModel>();
-        var duplicates = new List<string>();
+        // Ambiguous archives ask for a root before anything is planned. A normal archive keeps
+        // its default name and never shows the dialog.
+        var plan = new List<(ModCardViewModel Card, string Folder, string? ContentRoot)>();
+        var skipped = 0;
 
         foreach (var card in cards)
         {
-            if (unique.Any(u => EffectiveFolderName(u.Package)
-                    .Equals(EffectiveFolderName(card.Package), StringComparison.OrdinalIgnoreCase)))
+            var folder = EffectiveFolderName(card.Package);
+            string? contentRoot = null;
+
+            if (card.Package.NeedsRootChoice && !card.IsInstalled)
             {
-                duplicates.Add(card.Title);
-                card.IsSelected = false;
+                var choice = await AskRootChoiceAsync(card.Package);
+                if (choice is null)
+                {
+                    card.IsSelected = false;
+                    skipped++;
+                    continue;
+                }
+
+                folder = choice.Name;
+                contentRoot = string.Equals(choice.ContentRoot, card.Package.RootInArchive,
+                    StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : choice.ContentRoot;
+                _manager.RememberRoot(card.Package.Fingerprint, choice.Name, choice.ContentRoot);
+            }
+
+            plan.Add((card, folder, contentRoot));
+        }
+
+        if (skipped > 0)
+            _toasts.Info(T("root.skippedTitle"), F("root.skippedText", skipped));
+
+        if (plan.Count == 0) return;
+
+        // The same mod may exist in several archives (zip + 7z + tar.gz). Install one copy only.
+        var unique = new List<(ModCardViewModel Card, string Folder, string? ContentRoot)>();
+        var duplicates = new List<string>();
+
+        foreach (var item in plan)
+        {
+            if (unique.Any(u => u.Folder.Equals(item.Folder, StringComparison.OrdinalIgnoreCase)))
+            {
+                duplicates.Add(item.Card.Title);
+                item.Card.IsSelected = false;
                 continue;
             }
-            unique.Add(card);
+
+            unique.Add(item);
         }
 
         if (duplicates.Count > 0)
             _toasts.Warning(T("vm.duplicatesSkipped"),
                 F("vm.duplicatesHint", string.Join(", ", duplicates.Distinct().Take(4))));
 
-        cards = unique;
-        if (cards.Count == 0) return;
+        plan = unique;
+        if (plan.Count == 0) return;
 
-        var existing = cards
-            .Select(c => EffectiveFolderName(c.Package))
+        var existing = plan
+            .SelectMany(item => TargetFolders(item.Card.Package, item.Folder))
             .Where(folder => Directory.Exists(Path.Combine(Settings.ModsPath, folder)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -524,20 +669,21 @@ public partial class AppViewModel : ObservableObject
 
         try
         {
-            foreach (var card in cards)
+            foreach (var (card, folderName, contentRoot) in plan)
             {
                 card.IsInstalling = true;
                 card.InstallProgress = 0;
                 StatusText = F("vm.installingStatus", card.Title);
 
-                var targetFolder = EffectiveFolderName(card.Package);
                 var options = new InstallOptions
                 {
-                    AllowReplace = allowReplace && existing.Contains(targetFolder),
+                    AllowReplace = allowReplace &&
+                        (card.Package.IsComposite || existing.Contains(folderName)),
                     CreateBackup = Settings.BackupBeforeChange,
                     // Update goes into the installed folder even if the new archive has
                     // a different root directory or filename.
-                    FolderNameOverride = targetFolder
+                    FolderNameOverride = folderName,
+                    ContentRootOverride = contentRoot
                 };
 
                 var progress = new Progress<InstallProgress>(p =>
@@ -564,9 +710,16 @@ public partial class AppViewModel : ObservableObject
 
         if (success > 0)
             _toasts.Success(T("vm.installDone"), F("vm.installDoneHint", success));
+
+        // A warning here is not cosmetic: for example, an old folder that could not be deleted
+        // stays in Mods and would be loaded by the game next to the new version.
+        var warnings = outcomes.SelectMany(o => o.Warnings).Distinct(StringComparer.Ordinal).ToList();
+        if (warnings.Count > 0)
+            _toasts.Warning(T("vm.installDone"), string.Join(" ", warnings.Take(2)));
+
         if (failed > 0)
             _toasts.Error(T("vm.installPartial"),
-                string.Join(" · ", outcomes.Where(o => !o.Success).Take(3).Select(o => $"{o.ModName}: {o.Error}")));
+                string.Join(" В· ", outcomes.Where(o => !o.Success).Take(3).Select(o => $"{o.ModName}: {o.Error}")));
 
         await RefreshInstalledAsync();
         await RefreshLogAsync();
@@ -652,6 +805,7 @@ public partial class AppViewModel : ObservableObject
         var backups = await Task.Run(() => _manager.GetBackups());
         Backups.Clear();
         foreach (var backup in backups) Backups.Add(backup);
+        BackupsFolderMissing = _manager.BackupsFolderMissing;
         NotifyStats();
     }
 
@@ -773,6 +927,12 @@ public partial class AppViewModel : ObservableObject
         _localization.Set(language);
         Settings.Language = Localization.ToCode(language);
         SaveSettings();
+
+        // Nexus texts were formatted when the check ran; rebuild them from the cache so the
+        // banner and card messages follow the new language without a new request.
+        NexusStatusText = string.Empty;
+        LoadNexusState();
+
         OnPropertyChanged(nameof(Language));
     }
 
@@ -800,12 +960,23 @@ public partial class AppViewModel : ObservableObject
         var modsPath = Settings.ModsPath;
         if (string.IsNullOrWhiteSpace(modsPath)) modsPath = Path.Combine(Settings.GamePath, "Mods");
 
-        var result = await Task.Run(() => _resolutions.CreateMergedPatch(conflict, choice, modsPath));
+        var result = await Task.Run(() =>
+            _resolutions.CreateMergedPatch(conflict, choice, modsPath, gamePath: Settings.GamePath));
 
         if (result.Success)
-            _toasts.Success(T("vm.patchCreated"), result.FolderPath ?? string.Empty);
+        {
+            // The patch is replayed on the game config when the game path is known; the first
+            // warning tells the user whether that check actually ran.
+            var warning = result.Warnings.FirstOrDefault();
+            if (warning is null)
+                _toasts.Success(T("vm.patchCreated"), result.FolderPath ?? string.Empty);
+            else
+                _toasts.Warning(T("vm.patchCreated"), warning);
+        }
         else
+        {
             _toasts.Error(T("vm.patchFailed"), result.Error ?? T("vm.unknownError"));
+        }
     }
 
     public void LaunchGame(bool eacEnabled)
@@ -819,6 +990,20 @@ public partial class AppViewModel : ObservableObject
     }
 
     public bool HasEac => _launcher.HasEacExecutable(Settings.GamePath);
+
+    /// <summary>Bound to the checkbox in the sidebar. Saved as soon as it changes.</summary>
+    public bool LaunchWithEac
+    {
+        get => Settings.LaunchWithEac;
+        set
+        {
+            if (Settings.LaunchWithEac == value) return;
+
+            Settings.LaunchWithEac = value;
+            SaveSettings();
+            OnPropertyChanged();
+        }
+    }
 
     public async Task AnalyzePackageConflictsAsync(ModCardViewModel card)
     {
@@ -852,6 +1037,16 @@ public partial class AppViewModel : ObservableObject
     /// folder (or no inner folder at all), so relying on one of them alone loses the match.
     /// </summary>
     private IEnumerable<InstalledMod> InstalledModels => InstalledMods.Select(c => c.Model);
+
+    /// <summary>Folders a package occupies: one for a normal mod, shared folder plus children for a composite archive.</summary>
+    private static IEnumerable<string> TargetFolders(ModPackage package, string folder)
+    {
+        yield return folder;
+
+        if (!package.IsComposite) yield break;
+        foreach (var component in package.Components)
+            yield return component.FolderName;
+    }
 
     private string EffectiveFolderName(ModPackage package) =>
         ModPackageSelector.EffectiveFolderName(package, InstalledModels);

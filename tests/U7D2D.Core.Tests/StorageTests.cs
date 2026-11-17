@@ -1,5 +1,7 @@
 using U7D2D.Core.Data;
+using U7D2D.Core.Infrastructure;
 using U7D2D.Core.Models;
+using U7D2D.Core.Mods;
 
 namespace U7D2D.Core.Tests;
 
@@ -136,5 +138,97 @@ public sealed class StorageTests
 
         store.Remove("ModA");
         Assert.Empty(store.LoadAll());
+    }
+
+    [Fact]
+    public void A_corrupt_database_is_quarantined_and_recreated()
+    {
+        using var ws = new TestWorkspace();
+        Directory.CreateDirectory(ws.Paths.Root);
+        File.WriteAllText(ws.Paths.DatabasePath, "this is not a sqlite database");
+
+        var db = new Database(ws.Paths);
+        db.Initialize();
+
+        Assert.NotNull(db.Recovery);
+        Assert.True(File.Exists(db.Recovery!.QuarantinePath));
+        Assert.True(File.Exists(ws.Paths.DatabasePath));
+        Assert.False(new SettingsStore(db).Load().SetupCompleted);
+    }
+
+    [Fact]
+    public void Clone_keeps_the_interface_language()
+    {
+        var settings = new AppSettings { Language = "ua" };
+        Assert.Equal("ua", settings.Clone().Language);
+    }
+
+    [Fact]
+    public void Locked_mod_info_keeps_the_version_from_the_last_scan()
+    {
+        using var ws = new TestWorkspace();
+        var db = new Database(ws.Paths);
+        db.Initialize();
+        var store = new InstalledStore(db);
+
+        var folder = Path.Combine(ws.Mods, "ModA");
+        Directory.CreateDirectory(folder);
+        var modInfo = Path.Combine(folder, "ModInfo.xml");
+        File.WriteAllText(modInfo, TestWorkspace.ModernModInfo("Mod A", "1.0.0"));
+
+        store.Upsert(new InstalledMod
+        {
+            FolderName = "ModA",
+            FullPath = folder,
+            Info = new ModMetadata { Name = "Mod A", Version = "1.0.0" },
+            HasModInfo = true,
+            InstalledUtc = DateTime.UtcNow
+        });
+
+        using (new FileStream(modInfo, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var scanned = new InstalledModScanner(store).Scan(ws.Mods).Single();
+            Assert.Equal("1.0.0", scanned.Info.Version);
+            Assert.NotEmpty(scanned.Warnings);
+        }
+    }
+
+    [Fact]
+    public void Settings_paths_are_stored_as_full_paths()
+    {
+        using var ws = new TestWorkspace();
+        var db = new Database(ws.Paths);
+        db.Initialize();
+        var store = new SettingsStore(db);
+
+        var settings = new AppSettings
+        {
+            GamePath = ws.Game + "\\",
+            ModsPath = Path.Combine(ws.Mods, "..", "Mods"),
+            BackupsPath = ws.Backups + "\\",
+            ArchivePaths = { ws.Archives + "\\" }
+        };
+
+        store.Save(settings);
+        var loaded = store.Load();
+
+        Assert.Equal(Path.GetFullPath(ws.Game), loaded.GamePath);
+        Assert.Equal(Path.GetFullPath(ws.Mods), loaded.ModsPath);
+        Assert.Equal(Path.GetFullPath(ws.Backups), loaded.BackupsPath);
+        Assert.Equal(Path.GetFullPath(ws.Archives), loaded.ArchivePaths.Single());
+    }
+
+    [Fact]
+    public void Paths_are_normalized_and_writability_is_checked()
+    {
+        using var ws = new TestWorkspace();
+
+        Assert.Equal(Path.GetFullPath(ws.Mods), PathSafety.NormalizeDirectory(ws.Mods + "\\"));
+        Assert.Equal(Path.GetFullPath(ws.Mods), PathSafety.NormalizeDirectory(Path.Combine(ws.Mods, "..", "Mods")));
+        Assert.True(PathSafety.IsDirectoryWritable(ws.Mods));
+
+        var file = Path.Combine(ws.Root, "plain-file.txt");
+        File.WriteAllText(file, "x");
+        Assert.False(PathSafety.IsDirectoryWritable(file));
     }
 }

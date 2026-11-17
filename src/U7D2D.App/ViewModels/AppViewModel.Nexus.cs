@@ -5,19 +5,25 @@ using U7D2D.Core.Nexus;
 namespace U7D2D.App.ViewModels;
 
 /// <summary>
-/// Nexus integration for the UI. Checks are strictly on demand — no timers, no
+/// Nexus integration for the UI. Checks are strictly on demand - no timers, no
 /// startup requests, no downloads, no changes to the game's Mods folder.
+///
+/// Sign-in uses OAuth 2.0 + PKCE: the user approves the app in the browser and the manager never
+/// asks for a personal API key (the Nexus AUP does not allow that).
 /// </summary>
 public partial class AppViewModel
 {
-    [ObservableProperty] private string _nexusApiKeyInput = string.Empty;
     [ObservableProperty] private string _nexusUserText = Localization.S("nx.keyNotChecked");
     [ObservableProperty] private string _nexusQuotaText = Localization.S("nx.quotaUnknown");
     [ObservableProperty] private string _nexusStatusText = string.Empty;
     [ObservableProperty] private string _nexusLastCheckText = Localization.S("nx.notCheckedYet");
     [ObservableProperty] private bool _isCheckingNexus;
-    [ObservableProperty] private bool _isValidatingNexusKey;
+    [ObservableProperty] private bool _isSigningInNexus;
+    [ObservableProperty] private bool _isNexusSignedIn;
+    [ObservableProperty] private string _nexusAccountText = Localization.S("nx.notSignedIn");
     [ObservableProperty] private int _nexusUpdatesCount;
+    [ObservableProperty] private string _nexusClientIdInput = string.Empty;
+    [ObservableProperty] private bool _hasNexusClientId;
 
     /// <summary>Fallback for mods whose id could not be detected: the game's mod list on Nexus.</summary>
     public string NexusGameModsUrl =>
@@ -30,6 +36,26 @@ public partial class AppViewModel
         var results = _manager.GetCachedNexusResults();
 
         ApplyNexusResults(results, links);
+        RefreshNexusAccountState();
+    }
+
+    /// <summary>Updates the "signed in as" label from persisted OAuth state.</summary>
+    public void RefreshNexusAccountState()
+    {
+        IsNexusSignedIn = _manager.HasNexusAccount;
+        HasNexusClientId = _manager.HasNexusOAuthClientId;
+
+        // Prefill from the saved override only; never overwrite what the user is typing.
+        if (string.IsNullOrWhiteSpace(NexusClientIdInput))
+            NexusClientIdInput = Settings.NexusOAuthClientId;
+
+        var name = _manager.NexusAccountName;
+
+        NexusAccountText = !IsNexusSignedIn
+            ? Localization.S("nx.notSignedIn")
+            : string.IsNullOrWhiteSpace(name)
+                ? Localization.S("nx.signedIn")
+                : Localization.SF("nx.signedInAs", name);
     }
 
     private void ApplyNexusResults(
@@ -37,6 +63,7 @@ public partial class AppViewModel
         Dictionary<string, NexusLink>? links = null)
     {
         links ??= _manager.GetNexusLinks();
+        var libraryVersions = _manager.GetLibraryVersions();
         var byFolder = results
             .GroupBy(r => r.FolderName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -47,11 +74,11 @@ public partial class AppViewModel
             // The player may have installed the update since the last Nexus check. A cached
             // "3.5 available" badge must not stay on a mod that is already at 3.5.
             if (verdict is not null)
-                RefreshVerdict(verdict, card.Model.Info.Version);
+                RefreshVerdict(verdict, card.Model.Info.Version, VersionsFor(libraryVersions, verdict.ModId));
 
             card.Nexus = verdict;
             if (links.TryGetValue(card.Folder, out var link))
-                card.NexusIdLabel = $"Nexus #{link.ModId}" + (link.IsManual ? Localization.S("nx.manualSuffix") : string.Empty);
+                card.NexusIdLabel = $"Nexus #{link.ModId}" + (link.IsManual ? Localization.S("nx.manualSuffix") : link.Source == "website" ? Localization.S("nx.websiteSuffix") : string.Empty);
             else if (verdict?.ModId > 0)
                 card.NexusIdLabel = $"Nexus #{verdict.ModId}" + Localization.S("nx.autoSuffix");
             else
@@ -65,7 +92,10 @@ public partial class AppViewModel
             : Localization.SF("nx.lastCheck", last.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm"));
     }
 
-    private static void RefreshVerdict(NexusModUpdate verdict, string? currentLocalVersion)
+    private static void RefreshVerdict(
+        NexusModUpdate verdict,
+        string? currentLocalVersion,
+        IReadOnlyCollection<string> libraryVersions)
     {
         // Older builds cached a harsher "set the ID manually" wording. Show the current
         // explanation even before the next check.
@@ -75,88 +105,136 @@ public partial class AppViewModel
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(currentLocalVersion) ||
-            string.IsNullOrWhiteSpace(verdict.RemoteVersion) ||
-            verdict.Status is NexusCheckStatus.NotLinked or NexusCheckStatus.ModNotFound or NexusCheckStatus.ApiError)
+        if (verdict.Status is NexusCheckStatus.ModNotFound or NexusCheckStatus.ApiError)
             return;
 
-        verdict.LocalVersion = currentLocalVersion;
-        switch (ModVersionComparer.Compare(verdict.RemoteVersion, currentLocalVersion))
+        if (!string.IsNullOrWhiteSpace(currentLocalVersion))
+            verdict.LocalVersion = currentLocalVersion;
+
+        if (verdict.RulesVersion >= NexusUpdateRules.Version)
         {
-            case VersionRelation.LeftNewer:
-                verdict.Status = NexusCheckStatus.UpdateAvailable;
-                verdict.Message = Localization.SF("nx.updateAvailable", verdict.RemoteVersion, currentLocalVersion);
-                break;
-            case VersionRelation.Inconclusive:
-                verdict.Status = NexusCheckStatus.UncomparableVersion;
-                verdict.Message = Localization.SF("nx.uncomparable", currentLocalVersion, verdict.RemoteVersion);
-                break;
-            default:
-                verdict.Status = NexusCheckStatus.UpToDate;
-                verdict.Message = Localization.S("nx.upToDate");
-                break;
+            // A fresh verdict already follows the file-based rules. Only the local version may
+            // have changed since the check (the player installed the update).
+            if (verdict.Status is not (NexusCheckStatus.NoFiles or NexusCheckStatus.UncomparableVersion) &&
+                !string.IsNullOrWhiteSpace(verdict.RemoteVersion) &&
+                !string.IsNullOrWhiteSpace(verdict.LocalVersion))
+            {
+                var relation = ModVersionComparer.Compare(verdict.LocalVersion, verdict.RemoteVersion);
+                if (relation is VersionRelation.Equal or VersionRelation.LeftNewer)
+                {
+                    verdict.Status = NexusCheckStatus.UpToDate;
+                    verdict.LibraryVersion = null;
+                }
+            }
+
+            verdict.Message = NexusUpdateRules.Describe(verdict);
+            return;
         }
+
+        // Entries written by an older build kept the page version in RemoteVersion and the file
+        // version in LatestFileVersion. They are recalculated on load: the page version is often
+        // the game version and must not survive as "update available".
+        var page = verdict.RemoteVersion;
+        var file = verdict.LatestFileVersion ?? string.Empty;
+        var result = NexusUpdateRules.Decide(verdict.LocalVersion, page, file, libraryVersions);
+
+        verdict.PageVersion = page;
+        verdict.Status = result.Status;
+        verdict.RemoteVersion = result.AvailableVersion;
+        verdict.LibraryVersion = result.LibraryVersion;
+        verdict.RulesVersion = NexusUpdateRules.Version;
+        verdict.Message = NexusUpdateRules.Describe(verdict);
     }
 
-    public async Task ValidateNexusKeyAsync()
-    {
-        if (IsValidatingNexusKey) return;
-        var key = NexusApiKeyInput?.Trim() ?? string.Empty;
-        if (key.Length == 0)
-        {
-            _toasts.Warning(Localization.S("nx.keyMissingTitle"), Localization.S("nx.keyMissingHint"));
-            return;
-        }
+    private static IReadOnlyCollection<string> VersionsFor(
+        IReadOnlyDictionary<int, List<string>> map, int modId) =>
+        map.TryGetValue(modId, out var versions) ? versions : Array.Empty<string>();
 
-        IsValidatingNexusKey = true;
-        NexusStatusText = Localization.S("nx.checkingKey");
+    /// <summary>
+    /// Starts the OAuth 2.0 + PKCE sign-in. The browser opens on the Nexus authorization page and
+    /// the manager waits for the loopback callback. No API key is requested at any point.
+    /// </summary>
+    public async Task SignInNexusAsync()
+    {
+        if (IsSigningInNexus) return;
+
+        IsSigningInNexus = true;
+        NexusStatusText = Localization.S("nx.oauthOpeningBrowser");
         try
         {
-            var result = await _manager.ValidateNexusKeyAsync(key);
-            NexusQuotaText = result.RateLimit.Summary;
+            var result = await _manager.SignInToNexusAsync(url => _shell.OpenUrl(url));
 
-            if (!result.Success || result.Data is null)
+            if (!result.Success)
             {
-                // A 500 or a Cloudflare 52x means Nexus failed, not the key. Saying "key rejected"
-                // there sends the user to regenerate a key that was fine all along.
-                var serverSide = result.IsServerError;
-
-                NexusUserText = serverSide
-                    ? Localization.S("nx.serverBusy")
-                    : Localization.S("nx.keyRejected");
-
-                _toasts.Error(
-                    serverSide ? Localization.S("nx.serverBusyTitle") : Localization.S("nx.keyRejectedTitle"),
-                    result.Error ?? Localization.S("nx.unknownError"));
+                if (result.Cancelled)
+                    _toasts.Info(Localization.S("nx.oauthCancelledTitle"), Localization.S("nx.oauthCancelledText"));
+                else
+                    _toasts.Error(Localization.S("nx.oauthFailedTitle"),
+                        result.Error ?? Localization.S("nx.unknownError"));
                 return;
             }
 
-            NexusUserText = Localization.SF("nx.userLine", result.Data.Name,
-                result.Data.IsPremium ? Localization.S("nx.yes") : Localization.S("nx.no"));
-            _toasts.Success(Localization.S("nx.keyWorksTitle"),
-                Localization.SF("nx.keyWorksText", result.Data.Name, result.RateLimit.Summary));
+            // Confirm the account and record its display name for the settings card.
+            var validation = await _manager.ValidateNexusAccountAsync();
+            RefreshNexusAccountState();
 
-            // Persist immediately so the key survives even if the player does not press Save.
-            Settings.NexusApiKey = NexusKeyProtection.Protect(key);
-            _manager.SaveSettings(Settings);
+            if (validation.Success && validation.Data is not null)
+            {
+                NexusUserText = Localization.SF("nx.userLine", validation.Data.Name,
+                    validation.Data.IsPremium ? Localization.S("nx.yes") : Localization.S("nx.no"));
+                NexusQuotaText = validation.RateLimit.Summary;
+                _toasts.Success(Localization.S("nx.oauthSuccessTitle"),
+                    Localization.SF("nx.oauthSuccessText", validation.Data.Name));
+            }
+            else
+            {
+                _toasts.Success(Localization.S("nx.oauthSuccessTitle"), Localization.S("nx.signedIn"));
+            }
         }
         catch (Exception e)
         {
-            _toasts.Error(Localization.S("nx.keyCheckError"), e.Message);
+            _toasts.Error(Localization.S("nx.oauthFailedTitle"), e.Message);
         }
         finally
         {
-            IsValidatingNexusKey = false;
+            IsSigningInNexus = false;
             NexusStatusText = string.Empty;
         }
+    }
+
+    /// <summary>
+    /// Saves the OAuth client id issued by Nexus so sign-in works without rebuilding the app.
+    /// The id is public; it only identifies the application to the authorization server.
+    /// </summary>
+    public void SaveNexusClientId()
+    {
+        var id = NexusClientIdInput?.Trim() ?? string.Empty;
+        _manager.SetNexusOAuthClientId(id);
+        Settings.NexusOAuthClientId = id;
+        RefreshNexusAccountState();
+
+        _toasts.Success(Localization.S("nx.clientIdSavedTitle"),
+            string.IsNullOrWhiteSpace(id)
+                ? Localization.S("nx.clientIdClearedText")
+                : Localization.S("nx.clientIdSavedText"));
+    }
+
+    /// <summary>Clears stored tokens. Nexus links stay usable, only account-bound checks stop.</summary>
+    public void SignOutNexus()
+    {
+        _manager.SignOutOfNexus();
+        RefreshNexusAccountState();
+        NexusUserText = Localization.S("nx.keyNotChecked");
+        NexusQuotaText = Localization.S("nx.quotaUnknown");
+        _toasts.Info(Localization.S("nx.signedOutTitle"), Localization.S("nx.signedOutText"));
     }
 
     public async Task CheckNexusUpdatesAsync()
     {
         if (IsCheckingNexus) return;
-        if (string.IsNullOrWhiteSpace(NexusApiKeyInput))
+        if (!_manager.HasNexusAccount)
         {
-            _toasts.Warning(Localization.S("nx.keyNeededTitle"), Localization.S("nx.keyNeededHint"));
+            _toasts.Warning(Localization.S("nx.signInNeededTitle"), Localization.S("nx.signInNeededHint"));
             return;
         }
 
@@ -164,14 +242,10 @@ public partial class AppViewModel
         NexusStatusText = Localization.S("nx.connecting");
         try
         {
-            // The facade reads the persisted (encrypted) key, not the text box, so a freshly
-            // pasted key must be stored before the check even if the player skipped Save.
-            Settings.NexusApiKey = NexusKeyProtection.Protect(NexusApiKeyInput.Trim());
-            _manager.SaveSettings(Settings);
-
             var progress = new Progress<string>(text => NexusStatusText = text);
             var report = await _manager.CheckNexusUpdatesAsync(progress);
             NexusQuotaText = report.RateLimit.Summary;
+            RefreshNexusAccountState();
 
             if (report.Error is not null)
             {

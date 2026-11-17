@@ -27,15 +27,28 @@ public sealed class NexusApiResult<T>
 /// v2 GraphQL is still marked "work in progress" by Nexus, and v3 REST does not
 /// cover the mod/file endpoints a mod manager needs.
 ///
-/// AUP requirements implemented here: apikey header, Application-Name,
-/// Application-Version and an identifying User-Agent on every request.
+/// AUP requirements implemented here: OAuth 2.0 bearer token (no personal API key),
+/// Application-Name, Application-Version and an identifying User-Agent on every request.
 /// Quota is read from X-RL-* headers instead of hardcoding a number: the published
 /// limits changed between the Swagger spec and the June 2026 help article.
 /// </summary>
 public sealed class NexusApiClient : IDisposable
 {
     public const string ApplicationName = "Universal7D2DModManager";
-    public const string ApplicationVersion = "1.2.2";
+
+    /// <summary>
+    /// The AUP requires an accurate Application-Version header. It is taken from the running
+    /// assembly instead of a hardcoded string, so it cannot drift from the shipped build.
+    /// </summary>
+    public static readonly string ApplicationVersion = ResolveVersion();
+
+    private static string ResolveVersion()
+    {
+        var version = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version
+                      ?? typeof(NexusApiClient).Assembly.GetName().Version;
+
+        return version is null ? "1.0.0" : $"{version.Major}.{version.Minor}.{version.Build}";
+    }
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -141,17 +154,17 @@ public sealed class NexusApiClient : IDisposable
     // ---------------------------------------------------------------- transport
 
     private async Task<NexusApiResult<T>> SendAsync<T>(
-        HttpMethod method, string path, string apiKey, CancellationToken ct, bool readRaw = false)
+        HttpMethod method, string path, string accessToken, CancellationToken ct, bool readRaw = false)
     {
-        if (string.IsNullOrWhiteSpace(apiKey))
+        if (string.IsNullOrWhiteSpace(accessToken))
             return Failure<T>(Localization.S("nx2.keyNotSet"), 0);
 
         try
         {
-            var key = NormalizeKey(apiKey);
+            var token = NormalizeToken(accessToken);
 
             using var request = new HttpRequestMessage(method, path);
-            request.Headers.TryAddWithoutValidation("apikey", key);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
             request.Headers.TryAddWithoutValidation("Application-Name", ApplicationName);
             request.Headers.TryAddWithoutValidation("Application-Version", ApplicationVersion);
             request.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -171,7 +184,7 @@ public sealed class NexusApiClient : IDisposable
                 await Task.Delay(TimeSpan.FromMilliseconds(1200), ct);
 
                 using var retry = new HttpRequestMessage(method, path);
-                retry.Headers.TryAddWithoutValidation("apikey", key);
+                retry.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
                 retry.Headers.TryAddWithoutValidation("Application-Name", ApplicationName);
                 retry.Headers.TryAddWithoutValidation("Application-Version", ApplicationVersion);
                 retry.Headers.TryAddWithoutValidation("Accept", "application/json");
@@ -251,20 +264,16 @@ public sealed class NexusApiClient : IDisposable
     }
 
     /// <summary>
-    /// Cleans a pasted key. Copying from the Nexus page often brings a newline, a zero-width space
-    /// or surrounding quotes, and the API answers with a server error instead of a clear rejection.
+    /// Defensive cleanup for a token that may have been copied with a "Bearer " prefix, quotes or
+    /// stray whitespace. Tokens themselves never contain whitespace.
     /// </summary>
-    private static string NormalizeKey(string raw)
+    private static string NormalizeToken(string raw)
     {
         var cleaned = raw
             .Replace("\uFEFF", string.Empty)
             .Replace("\u200B", string.Empty)
-            .Replace("\u00A0", " ")
             .Trim()
             .Trim('"', '\'', '`');
-
-        if (cleaned.StartsWith("apikey:", StringComparison.OrdinalIgnoreCase))
-            cleaned = cleaned["apikey:".Length..];
 
         if (cleaned.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
             cleaned = cleaned["Bearer ".Length..];
@@ -278,7 +287,7 @@ public sealed class NexusApiClient : IDisposable
     private static string ErrorText(HttpStatusCode code) => code switch
     {
         HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden =>
-            Localization.S("nx2.keyInvalid"),
+            Localization.S("nx.sessionExpired"),
         HttpStatusCode.NotFound =>
             Localization.S("nx2.modNotFound"),
         (HttpStatusCode)429 =>

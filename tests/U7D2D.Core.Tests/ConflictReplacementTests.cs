@@ -63,7 +63,7 @@ public sealed class ConflictReplacementTests
         var report = Analyze(ws);
 
         Assert.DoesNotContain(report.Conflicts, c => c.Kind == ConflictKind.SameConfigFile);
-        Assert.Contains(report.Notes, n => n.Contains("copy of the original game file"));
+        Assert.Contains(report.Notes, n => n.Text.Contains("copy of the original game file"));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class ConflictReplacementTests
         var report = Analyze(ws);
 
         Assert.DoesNotContain(report.Conflicts, c => c.Kind == ConflictKind.SameConfigFile);
-        Assert.Contains(report.Notes, n => n.Contains("already present"));
+        Assert.Contains(report.Notes, n => n.Text.Contains("already present"));
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public sealed class ConflictReplacementTests
         var report = Analyze(ws);
 
         Assert.DoesNotContain(report.Conflicts, c => c.Kind == ConflictKind.DuplicateNode);
-        Assert.Contains(report.Notes, n => n.Contains("by design"));
+        Assert.Contains(report.Notes, n => n.Text.Contains("by design"));
     }
 
     [Fact]

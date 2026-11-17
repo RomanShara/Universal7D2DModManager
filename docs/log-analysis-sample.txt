@@ -1,0 +1,395 @@
+Game log analysis
+Created: 2026-11-13 20:22:15
+
+Logs read: Player.log: Player.log, previous session: Player-prev.log
+Mods and types indexed: 61 / 7179 / 1096
+Lines read: 10793
+Took: 0,5s
+Index / read / compare: 0,2s / 0,1s / 0,2s
+
+Findings: high 0, medium 0, no culprit 23, notice 1
+
+How to read this report
+  * No culprit is a valid result, not a gap. No installed mod could be linked to an entry from either the log line or its stack; that does not prove the game is at fault, because a mod can act indirectly through a Harmony patch or leave broken state behind. The manager does not name a mod by guesswork.
+  * A repeat counter means one recurring scenario, not that many separate failures. Each card shows the first and last occurrence; Distinct values tells how many different variants were merged, and Values lists them (up to 20). Look at what was happening in game at the first occurrence.
+  * When a class is missing, the game reports it through three independent mechanisms, and the same class name can appear under more than one with a different count. The XUi controller factory resolves window controllers; Type.GetType() resolves dialog, AI and condition classes; and action-class registration (for example 'NPCNoVoiceTag') resolves entity actions. They are separate lookup paths of one problem, not duplicated errors and not proof of separate faults.
+
+What changed since the previous session
+  Mentioned in this log: 136
+    0_TFP_Harmony  (first seen: 13.11, 05:11)
+    Raygun  (first seen: 13.11, 05:11)
+    PaLoALo-V3-LocalizationLoader  (first seen: 13.11, 05:11)
+    OPMods  (first seen: 13.11, 05:11)
+    Onsoku_Umbrella  (first seen: 13.11, 05:11)
+    Onsoku_Parachute  (first seen: 13.11, 05:11)
+    Onsoku_Chuveiro_Final  (first seen: 13.11, 05:11)
+    Onsoku Weaporigens2  (first seen: 13.11, 05:11)
+    Onsoku Weaporigens  (first seen: 13.11, 05:11)
+    NextTIERMod  (first seen: 13.11, 05:11)
+    NextTIERGear  (first seen: 13.11, 05:11)
+    MegaTree  (first seen: 13.11, 05:11)
+    Mazriqs_Extended_Sandbox_Options  (first seen: 13.11, 05:11)
+    Mazriq_Volat  (first seen: 13.11, 05:11)
+    Mazriq_VehicleCore  (first seen: 13.11, 05:11)
+    Mazriq_Ural4320  (first seen: 13.11, 05:11)
+    Mazriq_Type82  (first seen: 13.11, 05:11)
+    Mazriq_Truck  (first seen: 13.11, 05:11)
+    Salvo  (first seen: 13.11, 05:11)
+    SCG_Defense_Solutions_V33  (first seen: 13.11, 05:11)
+    SingularityPerk  (first seen: 13.11, 05:11)
+    TargetAnalyzer  (first seen: 13.11, 05:11)
+    Zzzzzzzzzzzzzzzz_CasesMod  (first seen: 13.11, 05:11)
+    zzzzzzzzzzzz_OveBar  (first seen: 13.11, 05:11)
+    zzzzzzzz_Ark_Modification_System  (first seen: 13.11, 05:11)
+    zzzzzz_Ark_Nine_Storage Scroll  (first seen: 13.11, 05:11)
+    Zzzzxcpv_Classic_Traders  (first seen: 13.11, 05:11)
+    Zzzzxcpv_Classic_All_In_One  (first seen: 13.11, 05:11)
+    zzz-VaultUiTweaks  (first seen: 13.11, 05:11)
+    zzz-TraderRewards  (first seen: 13.11, 05:11)
+    Mazriq_Tigr  (first seen: 13.11, 05:11)
+    zzz-TraderDataFix  (first seen: 13.11, 05:11)
+    zzz-ExtraChallenges  (first seen: 13.11, 05:11)
+    zzz_SonsuzSandik  (first seen: 13.11, 05:11)
+    zzPerkMastery  (first seen: 13.11, 05:11)
+    Z_Colossal455  (first seen: 13.11, 05:11)
+    Vayben's Mega Cities for v3.3  (first seen: 13.11, 05:11)
+    VanillaFoodExpandedV1.1  (first seen: 13.11, 05:11)
+    Ultimate_End_Game_Perk_V3  (first seen: 13.11, 05:11)
+    TranslatCore  (first seen: 13.11, 05:11)
+    zzz-LootStageCap  (first seen: 13.11, 05:11)
+    Mazriq_PunisherMRAP  (first seen: 13.11, 05:11)
+    TreeChopperMod  (first seen: 13.11, 05:11)
+    Mazriq_Offroad  (first seen: 13.11, 05:11)
+    Custom_Mods_Zeebark  (first seen: 13.11, 05:11)
+    CPPS-V3  (first seen: 13.11, 05:11)
+    CFWeaponMaster  (first seen: 13.11, 05:11)
+    CFs_LargeOilRig  (first seen: 13.11, 05:11)
+    BigStacks  (first seen: 13.11, 05:11)
+    AwesomePerks  (first seen: 13.11, 05:11)
+    Auto Farm And Water  (first seen: 13.11, 05:11)
+    Auto Craft  (first seen: 13.11, 05:11)
+    CustomQuest  (first seen: 13.11, 05:11)
+    Army Biological Center  (first seen: 13.11, 05:11)
+    Alter_Autominers  (first seen: 13.11, 05:11)
+    1-NPCModBanditRaidQuests  (first seen: 13.11, 05:11)
+    1-NPCMod-Bandit-POIs  (first seen: 13.11, 05:11)
+    0-XNPCCore  (first seen: 13.11, 05:11)
+    0-SCore  (first seen: 13.11, 05:11)
+    0-Quartz  (first seen: 13.11, 05:11)
+    00000-Gears  (first seen: 13.11, 05:11)
+    Mazriq_PatriaAMV  (first seen: 13.11, 05:11)
+    AposMod  (first seen: 13.11, 05:11)
+    CxMonstah POIs X (v3.0)  (first seen: 13.11, 05:11)
+    Autopilot  (first seen: 13.11, 05:11)
+    KitsuneWindTurbine  (first seen: 13.11, 05:11)
+    Mazriq_Muscle  (first seen: 13.11, 05:11)
+    Dewta-V3-Perks Plus Serverside Only  (first seen: 13.11, 05:11)
+    Mazriq_M4GT3  (first seen: 13.11, 05:11)
+    Mazriq_M4  (first seen: 13.11, 05:11)
+    Mazriq_Lightbody85  (first seen: 13.11, 05:11)
+    Mazriq_JDM  (first seen: 13.11, 05:11)
+    Mazriq_HummerH1MT  (first seen: 13.11, 05:11)
+    Mazriq_G700  (first seen: 13.11, 05:11)
+    Mazriq_DirtBikes  (first seen: 13.11, 05:11)
+    Mazriq_Cruisers  (first seen: 13.11, 05:11)
+    Mazriq_Mech  (first seen: 13.11, 05:11)
+    Mazriq_ARXPounder  (first seen: 13.11, 05:11)
+    Mazriq_ArmyTrucks  (first seen: 13.11, 05:11)
+    Mazriq_Abrams  (first seen: 13.11, 05:11)
+    Looted  (first seen: 13.11, 05:11)
+    Lekan_Storage_Crates_High  (first seen: 13.11, 05:11)
+    LegendPerks  (first seen: 13.11, 05:11)
+    Mazriq_Bulwark  (first seen: 13.11, 05:11)
+    Kroko_PVD  (first seen: 13.11, 05:11)
+    MazriqType82  (first seen: 13.11, 05:12)
+    MazriqTruck  (first seen: 13.11, 05:12)
+    MazriqPatria  (first seen: 13.11, 05:12)
+    MazriqPunisher  (first seen: 13.11, 05:12)
+    MazriqUral  (first seen: 13.11, 05:12)
+    MazriqOffroad  (first seen: 13.11, 05:12)
+    MazriqMuscle  (first seen: 13.11, 05:12)
+    MazriqTigr  (first seen: 13.11, 05:12)
+    MazriqVehicleCore  (first seen: 13.11, 05:12)
+    Pedro_OnsokuWeaponsOrigins2  (first seen: 13.11, 05:12)
+    MazriqExtendedSandbox  (first seen: 13.11, 05:12)
+    Pedro_OnsokuWeaponsOrigins  (first seen: 13.11, 05:12)
+    Pedro_OnsokuParachute  (first seen: 13.11, 05:12)
+    Pedro_OnsokuUmbrella  (first seen: 13.11, 05:12)
+    Mortar  (first seen: 13.11, 05:12)
+    SCGDefenseSolutions  (first seen: 13.11, 05:12)
+    Dir2104_TargetAnalyzer  (first seen: 13.11, 05:12)
+    MazriqMech  (first seen: 13.11, 05:12)
+    MazriqVolat  (first seen: 13.11, 05:12)
+    MazriqM4GT3  (first seen: 13.11, 05:12)
+    1_NPCModBanditRaidQuests  (first seen: 13.11, 05:12)
+    MazriqLightbody85  (first seen: 13.11, 05:12)
+    Gears  (first seen: 13.11, 05:12)
+    Quartz  (first seen: 13.11, 05:12)
+    0-SCore_sphereii  (first seen: 13.11, 05:12)
+    1_NPCMod_Bandit_POIs  (first seen: 13.11, 05:12)
+    MazriqM4  (first seen: 13.11, 05:12)
+    AutoCraft  (first seen: 13.11, 05:12)
+    AutoFarmAndWater  (first seen: 13.11, 05:12)
+    CxMonstahPOIs  (first seen: 13.11, 05:12)
+    Lekan-SDN-Mod  (first seen: 13.11, 05:12)
+    Army_Biological_Center  (first seen: 13.11, 05:12)
+    MazriqArmyTrucks  (first seen: 13.11, 05:12)
+    MazriqARX  (first seen: 13.11, 05:12)
+    MazriqBulwark  (first seen: 13.11, 05:12)
+    MazriqCruisers  (first seen: 13.11, 05:12)
+    MazriqDirtBikes  (first seen: 13.11, 05:12)
+    MazriqG700  (first seen: 13.11, 05:12)
+    MazriqHummerMT  (first seen: 13.11, 05:12)
+    MazriqJDM  (first seen: 13.11, 05:12)
+    MazriqAbrams  (first seen: 13.11, 05:12)
+    ArkNineStorage  (first seen: 13.11, 05:12)
+    Zzzzxcp_CP_Classic_All_In_One  (first seen: 13.11, 05:12)
+    ExtraChallenges  (first seen: 13.11, 05:12)
+    SonsuzSandik  (first seen: 13.11, 05:12)
+    UltimateEndGamePerk  (first seen: 13.11, 05:12)
+    VaybensMegaCities  (first seen: 13.11, 05:12)
+    VanillaFoodExpandedV1_1  (first seen: 13.11, 05:12)
+    Ark_Modification_System  (first seen: 13.11, 05:12)
+    PerkMastery  (first seen: 13.11, 05:12)
+    CasesMod  (first seen: 13.11, 05:12)
+  Mentioned in the previous log: 136
+  Installed in the Mods folder right now: 85
+    The folder shows the current state only, not what was installed during the previous session.
+    These counts are not comparable: the logs list every component the game named while loading - mod folders, assemblies, dependencies and internal mod IDs - while the Mods folder lists only top-level folders. More mentions than folders does not mean mods disappeared, and matching numbers are not a check that every mod loaded.
+  First error: 13.11, 06:17
+
+----------------------------------------------------------------------
+1. Exception  [no culprit]
+Time: 2026-11-13 06:32:25
+First / last: 06:32:25 / 06:57:34
+Repeats: 6
+Message: Object reference not set to an instance of an object
+Suspects: none
+Stack:
+    at XUiC_SkillSkillInfoWindow.UpdateSkill
+    at XUiC_SkillSkillInfoWindow.Update
+    at XUiController.Update
+    at XUiC_SkillWindowGroup.Update
+    at XUi.OnUpdateDeltaTime
+
+----------------------------------------------------------------------
+2. NullReferenceException  [no culprit]
+Time: -
+Repeats: 1
+Message: Object reference not set to an instance of an object
+Suspects: none
+Stack:
+    at PowerManager.Update
+    at GameManager.gmUpdate
+    at GameManager.Update
+
+----------------------------------------------------------------------
+3. NullReferenceException  [no culprit]
+Time: -
+Repeats: 1
+Message: Object reference not set to an instance of an object
+Suspects: none
+Stack:
+    at WireManager.Cleanup
+    at GameManager.SaveAndCleanupWorld
+    at ConnectionManager.DisconnectFromServer
+    at ProtocolManager.Disconnect
+    at ConnectionManager.Disconnect
+    at NetPackagePlayerDenied.ProcessPackage
+    at ConnectionManager.ProcessPackages
+    at ConnectionManager.Update
+
+----------------------------------------------------------------------
+4. Missing action class in 1-XNPCVoiceControl  [no culprit]
+Time: 2026-11-12 23:09:31
+Repeats: 1
+Message: No action class 'NPCNoVoiceTag, 1-XNPCVoiceControl found!
+Suspects: none
+Stack:
+    at DialogFromXml.ParseNode
+    at DialogFromXml.CreateDialogs
+    at DialogFromXml+d__0.MoveNext
+    at ThreadManager+d__55.MoveNext
+What can be done:
+  * A class expected by assembly 1-XNPCVoiceControl is missing, although the assembly is installed in 0-XNPCCore. This is about a missing class, not a missing mod. Check that the mod is enabled, that its version matches the game and that its dependencies are present.
+  * This card covers action-class registration, which resolves entity behaviours such as NPC actions. The same class may also appear in the separate XUi controller or Type.GetType() cards; those are different lookup paths, not duplicates.
+
+----------------------------------------------------------------------
+5. XUi controllers from 1-XNPCVoiceControl were not found  [no culprit]
+Time: 2026-11-12 23:09:40
+First / last: 23:09:40 / 23:09:41
+Repeats: 21
+Distinct values / repeats: 6 / 21
+Message: Controller 'XUiC_XNPCVoiceControlConfig, 1-XNPCVoiceControl' not found, using base XUiController --- hierarchy: windows -> window (windowXNPCVoiceControlConfig)
+Values: XUiC_XNPCVoiceControlConfig, XUiC_NPCSubtitles, XUiC_VCFormationRadial, XUiC_NpcCraftWindow, XUiC_NpcRecipeEntry, XUiC_NpcIngredientEntry
+Suspects: none
+What can be done:
+  * The game could not create XUi controllers from assembly 1-XNPCVoiceControl and fell back to the base XUiController. The assembly is installed in 0-XNPCCore: these are missing controllers, not a missing mod. A controller may be absent from this build, renamed, or referenced by an outdated window XML. Check the mod version and the XML files that declare them.
+  * This card covers the XUi controller factory. The same class may also appear in the separate Type.GetType() or action-class cards; those are different lookup paths, not duplicates.
+
+----------------------------------------------------------------------
+6. BlockTrigger.Refresh: Chunk null. ChunkKey=281474003632159, LocalChunkPos=3, 39, 7, PrefabInstance=rwg_tile_countryresidential_cap_zzxcpv_01.13207. From: UnityEngine.StackTraceUtility:ExtractStackTrace ()  [no culprit]
+Time: 2026-11-13 06:17:33
+First / last: 06:17:33 / 06:29:47
+Repeats: 14
+Message: BlockTrigger.Refresh: Chunk null. ChunkKey=281474003632159, LocalChunkPos=3, 39, 7, PrefabInstance=rwg_tile_countryresidential_cap_zzxcpv_01.13207. From: UnityEngine.StackTraceUtility:ExtractStackTrace ()
+Suspects: none
+
+----------------------------------------------------------------------
+7. XUi  [no culprit]
+Time: 2026-11-13 06:32:25
+First / last: 06:32:25 / 06:57:34
+Repeats: 6
+Message: Error while updating window group 'skills':
+Suspects: none
+
+----------------------------------------------------------------------
+8. 264112 DecorateChunkOverlapping Chunk_2,-53, System.IndexOutOfRangeException: Index was outside the bounds of the array.  [no culprit]
+Time: 2026-11-13 07:23:40
+Repeats: 1
+Message: 264112 DecorateChunkOverlapping Chunk_2,-53, System.IndexOutOfRangeException: Index was outside the bounds of the array.
+Suspects: none
+
+----------------------------------------------------------------------
+9. XML loader: Loading and parsing 'dialogs' failed  [no culprit]
+Time: 2026-11-12 23:09:31
+Repeats: 1
+Message: XML loader: Loading and parsing 'dialogs' failed
+Suspects: none
+
+----------------------------------------------------------------------
+10. ActionTarget to Vector3 conversion failed  [no culprit]
+Time: 2026-11-13 05:19:17
+First / last: 05:19:17 / 07:28:18
+Repeats: 205
+Message: ActionTarget implicitly converted to Vector3, but failed: ActionTarget
+Suspects: none
+What can be done:
+  * The game tried to convert an ActionTarget to a Vector3 and used a fallback. The same warning appears under many different player actions, so treat it as one code path rather than a separate failure every time. The warning alone does not prove anything is broken when the corresponding actions work in game; it is a reason to check them, not a verdict. If they do fail, report the first occurrence time to the author of the mod that adds those actions.
+
+----------------------------------------------------------------------
+11. Types from 1-XNPCVoiceControl could not be resolved  [no culprit]
+Time: 2026-11-12 23:09:30
+First / last: 23:09:30 / 23:09:41
+Repeats: 124
+Distinct values / repeats: 22 / 124
+Message: Type:NoActiveChat, 1-XNPCVoiceControl was missing when we looked it up via Type.GetType()
+Values: NoActiveChat, HasActiveChat, JumpDownSDX, SdcsAnimBusy, DynamicFollow, CanFollowNow, NoActiveChatOrLeaderFar, PatrolRecorded, CombatLinger, MayEngage, CanFollowNowV4, PatrolRecordedV4, BackupFromTargetPaced, SdcsSeesOrDefendsLeader, SdcsCoverMeleeGate, NPCNoVoiceTag, XUiC_XNPCVoiceControlConfig, XUiC_NPCSubtitles, XUiC_VCFormationRadial, XUiC_NpcCraftWindow, ...
+Suspects: none
+What can be done:
+  * The game could not resolve classes from assembly 1-XNPCVoiceControl through Type.GetType(), even though the assembly is installed in 0-XNPCCore. The XML windows still load with a base controller. Possible causes: the classes are missing from this build, were renamed, or a version dependency is not satisfied. This is a missing class, not a missing mod.
+  * This card covers Type.GetType() lookups for dialog and AI classes. The XUi controller factory and action-class registration resolve other class kinds separately, so a repeated name in those cards is not a duplicate.
+
+----------------------------------------------------------------------
+12. MultiBlockManager  [no culprit]
+Time: 2026-11-13 05:19:19
+First / last: 05:19:19 / 07:26:57
+Repeats: 65
+Message: [Alignment] SetTerrainAlignmentDirty failed; no terrain-aligned block has been registered at the specified world position: 183, 59, 944
+Suspects: none
+
+----------------------------------------------------------------------
+13. XML patches from MazriqVehicleCore did not apply  [no culprit]
+Time: 2026-11-13 05:14:23
+Repeats: 48
+Distinct values / repeats: 48 / 48
+Message: XML patch for "items.xml" from mod "MazriqVehicleCore" did not apply: <append xpath="/items/item[@name='mzDefender110Placeable']/effect_group[passive_effect[@name='DegradationMax']]"  (line 7 at pos 3)
+Values: items.xml [mzDefender110Placeable], items.xml [mzFerrari849TestarossaPlaceable], items.xml [mzFerrariLaFerrariPlaceable], items.xml [mzFerrariF40LBPlaceable], items.xml [mzFerrariF40LWPlaceable], items.xml [mzFerrariPurosangueMansoryPlaceable], items.xml [mzFerrariSF90XXPlaceable], items.xml [mzGT86MEPlaceable], items.xml [mzGT86SSPlaceable], items.xml [mzHyperB95Placeable], items.xml [mzHyperChironMansoryPlaceable], items.xml [mzHyperJeskoAttackPlaceable], items.xml [mzHyperOne1Placeable], items.xml [mzHyperVenomF5Placeable], items.xml [mzHyperVulcanPlaceable], items.xml [mzHyperW1Placeable], items.xml [mzHyperZondaRevolucionPlaceable], items.xml [mzKimeraEVO37Placeable], items.xml [mzXBowRPlaceable], items.xml [mzLamboCarbonadoPlaceable], ...
+Suspects: none
+What can be done:
+  * The log names MazriqVehicleCore as the source of these XML patches. A patch that does not apply is skipped. Common causes: a mod built for another game version, an XPath that no longer matches the installed config, or an outdated mod. Check the mod version against your game version. Repeats counts failed attempts; Distinct values counts the unique file and XPath pairs listed under Values, so you can tell one repeated XPath from several different failing patches. The report does not claim the mod is broken.
+
+----------------------------------------------------------------------
+14. XML patch type not recognised  [no culprit]
+Time: 2026-11-13 05:14:20
+Repeats: 4
+Message: XML.Patch (/config/passive_effect, line 50 at pos 5): Patch type (passive_effect) unknown
+Suspects: none
+What can be done:
+  * The XML loader did not recognise a patch element at that position. This is usually a patch written for another game version or syntax the current loader does not support. The affected patch is skipped; the rest of the config still loads.
+
+----------------------------------------------------------------------
+15. XML patches from OPMods did not apply  [no culprit]
+Time: 2026-11-13 05:14:20
+Repeats: 4
+Distinct values / repeats: 1 / 4
+Message: XML patch for "progression.xml" from mod "OPMods" did not apply: <passive_effect name="LootProb" operation="perc_add" level="1,5" value="2,10" tags="rifleSkill"  (line 50 at pos 5)
+Values: progression.xml [LootProb]
+Suspects: none
+What can be done:
+  * The log names OPMods as the source of these XML patches. A patch that does not apply is skipped. Common causes: a mod built for another game version, an XPath that no longer matches the installed config, or an outdated mod. Check the mod version against your game version. Repeats counts failed attempts; Distinct values counts the unique file and XPath pairs listed under Values, so you can tell one repeated XPath from several different failing patches. The report does not claim the mod is broken.
+
+----------------------------------------------------------------------
+16. XML patches from Colossal455 did not apply  [no culprit]
+Time: 2026-11-13 05:16:02
+Repeats: 3
+Distinct values / repeats: 2 / 3
+Message: XML patch for "XUi_InGame/windows.xml" from mod "Colossal455" did not apply: <set xpath="/windows/window[@name='itemInfoPanel']/rect[@name='contentInfo']/rect[@pos='153,-271']/@width"  (line 134 at pos 3)
+Values: XUi_InGame/windows.xml [itemInfoPanel], XUi_InGame/windows.xml [craftingInfoPanel]
+Suspects: none
+What can be done:
+  * The log names Colossal455 as the source of these XML patches. A patch that does not apply is skipped. Common causes: a mod built for another game version, an XPath that no longer matches the installed config, or an outdated mod. Check the mod version against your game version. Repeats counts failed attempts; Distinct values counts the unique file and XPath pairs listed under Values, so you can tell one repeated XPath from several different failing patches. The report does not claim the mod is broken.
+
+----------------------------------------------------------------------
+17. Harmony cannot find a type: VaultUiBootstrap  [no culprit]
+Time: 2026-11-13 05:12:07
+Repeats: 2
+Message: [Harmony] AccessTools.TypeByName: Could not find type named Gravebound.Vault.UI.VaultUiBootstrap
+Suspects: none
+What can be done:
+  * Harmony asked for type Gravebound.Vault.UI.VaultUiBootstrap by name and could not find it. Typical reasons: an optional mod is not installed, the mod was built for another game version, or the patch is outdated. The namespace Gravebound.Vault.UI only hints at where the class comes from; it is not evidence against a specific mod, so no culprit is named.
+
+----------------------------------------------------------------------
+18. Harmony cannot find method EntityHuman.GetMoveSpeedPanic  [no culprit]
+Time: 2026-11-13 05:12:05
+Repeats: 1
+Message: [Harmony] AccessTools.DeclaredMethod: Could not find method for type EntityHuman and name GetMoveSpeedPanic and parameters
+Suspects: none
+What can be done:
+  * Harmony looked for method GetMoveSpeedPanic on type EntityHuman with a specific signature and did not find it. A patch that cannot be applied is skipped. Common causes: another game version changed the signature, the target is an optional type, or the patch is outdated. This line does not identify a mod, so no culprit is named.
+
+----------------------------------------------------------------------
+19. Harmony cannot find method EntityZombieCop.get_IsRunning  [no culprit]
+Time: 2026-11-13 05:12:05
+Repeats: 1
+Message: [Harmony] AccessTools.DeclaredMethod: Could not find method for type EntityZombieCop and name get_IsRunning and parameters
+Suspects: none
+What can be done:
+  * Harmony looked for method get_IsRunning on type EntityZombieCop with a specific signature and did not find it. A patch that cannot be applied is skipped. Common causes: another game version changed the signature, the target is an optional type, or the patch is outdated. This line does not identify a mod, so no culprit is named.
+
+----------------------------------------------------------------------
+20. Harmony cannot find method EntityZombieCop.GetMoveSpeedPanic  [no culprit]
+Time: 2026-11-13 05:12:05
+Repeats: 1
+Message: [Harmony] AccessTools.DeclaredMethod: Could not find method for type EntityZombieCop and name GetMoveSpeedPanic and parameters
+Suspects: none
+What can be done:
+  * Harmony looked for method GetMoveSpeedPanic on type EntityZombieCop with a specific signature and did not find it. A patch that cannot be applied is skipped. Common causes: another game version changed the signature, the target is an optional type, or the patch is outdated. This line does not identify a mod, so no culprit is named.
+
+----------------------------------------------------------------------
+21. Could not find selectable element btnGeneral in WindowGroup sandboxOptions  [no culprit]
+Time: 2026-11-13 05:13:00
+Repeats: 1
+Message: Could not find selectable element btnGeneral in WindowGroup sandboxOptions
+Suspects: none
+
+----------------------------------------------------------------------
+22. XML patches from SingularityPerk did not apply  [no culprit]
+Time: 2026-11-13 05:14:21
+Repeats: 1
+Distinct values / repeats: 1 / 1
+Message: XML patch for "buffs.xml" from mod "SingularityPerk" did not apply: <append xpath="/buffs/buff[@name='buffPerkAbilityUpdate']"  (line 3 at pos 6)
+Values: buffs.xml [buffPerkAbilityUpdate]
+Suspects: none
+What can be done:
+  * The log names SingularityPerk as the source of these XML patches. A patch that does not apply is skipped. Common causes: a mod built for another game version, an XPath that no longer matches the installed config, or an outdated mod. Check the mod version against your game version. Repeats counts failed attempts; Distinct values counts the unique file and XPath pairs listed under Values, so you can tell one repeated XPath from several different failing patches. The report does not claim the mod is broken.
+
+----------------------------------------------------------------------
+23. Outdated saved settings for Dir2104_TargetAnalyzer  [notice]
+Time: 2026-11-13 05:12:21
+Repeats: 13
+Distinct values / repeats: 13 / 13
+Message: [SavedModSettingsFromXml] Mod Dir2104_TargetAnalyzer : Setting BoostResistance not found, unable to load the current mod setting's current value, using default value
+Values: BoostResistance, BoostHealth, BoostDamage, VariantShell, VariantRam, SwiftBonus, ShellResist, ShellHead, RamDamage, Hologram, FxStrength, TiltAngle, DepthStrength
+What can be done:
+  * Not a failure: Gears (the settings framework) still has saved keys for Dir2104_TargetAnalyzer that this version no longer defines, so defaults were used. This normally happens right after updating Dir2104_TargetAnalyzer. Nothing is broken; the message was printed by the framework, not by Dir2104_TargetAnalyzer. Remove the obsolete keys from the saved ModSettings.xml if the warnings bother you.

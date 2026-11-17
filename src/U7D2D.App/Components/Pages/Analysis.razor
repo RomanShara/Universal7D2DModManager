@@ -2,6 +2,7 @@
 @using System.ComponentModel
 @inherits VmComponentBase
 @inject AppViewModel Vm
+@using U7D2D.Core.I18n
 
 <PageTitle>@Vm.T("title.analysis")</PageTitle>
 
@@ -15,7 +16,7 @@
             }
         </div>
         <div class="toolbar-right">
-            <button class="btn primary" type="button" @onclick="() => Vm.AnalyzeConflictsAsync()" disabled="@Vm.IsAnalyzing">
+            <button class="btn primary" type="button" @onclick="AnalyzeAllConflicts" disabled="@Vm.IsAnalyzing">
                 <Icon Name="layers" Size="16" /> @Vm.T("an.button")
             </button>
         </div>
@@ -43,7 +44,7 @@
                     @foreach (var card in Filtered.Take(120))
                     {
                         <li class="picker-item @(Vm.AnalysisTarget?.Id == card.Package.Id ? "active" : "")"
-                            @onclick="() => Vm.AnalyzeAsync(card.Package)">
+                            @onclick="() => AnalyzePackage(card.Package)">
                             <div class="picker-title">@card.Title</div>
                             <div class="picker-sub">
                                 <span>v@(card.Version)</span>
@@ -162,10 +163,36 @@
             else
             {
                 <div class="conflict-summary">
-                    <span class="summary-item conflict">@Vm.T("an.relConflict") <b>@Vm.Conflicts.ConflictCount</b></span>
-                    <span class="summary-item potential">@Vm.T("an.relPotential") <b>@Vm.Conflicts.PotentialCount</b></span>
-                    <span class="summary-item overlap">@Vm.T("an.relOverlap") <b>@Vm.Conflicts.OverlapCount</b></span>
-                    <span class="summary-item coexistence">@Vm.T("an.relCoexistence") <b>@Vm.Conflicts.CoexistenceCount</b></span>
+                    <button class="summary-item all @(_relationFilter is null ? "active" : "")" type="button"
+                            aria-pressed="@(_relationFilter is null ? "true" : "false")"
+                            @onclick="() => SetRelationFilter(null)">
+                        @Vm.T("an.relAll") <b>@Vm.Conflicts.Conflicts.Count</b>
+                    </button>
+                    <button class="summary-item conflict @(_relationFilter == ConflictRelation.Conflict ? "active" : "")" type="button"
+                            aria-pressed="@(_relationFilter == ConflictRelation.Conflict ? "true" : "false")"
+                            @onclick="() => SetRelationFilter(ConflictRelation.Conflict)">
+                        @Vm.T("an.relConflict") <b>@Vm.Conflicts.ConflictCount</b>
+                    </button>
+                    <button class="summary-item potential @(_relationFilter == ConflictRelation.Potential ? "active" : "")" type="button"
+                            aria-pressed="@(_relationFilter == ConflictRelation.Potential ? "true" : "false")"
+                            @onclick="() => SetRelationFilter(ConflictRelation.Potential)">
+                        @Vm.T("an.relPotential") <b>@Vm.Conflicts.PotentialCount</b>
+                    </button>
+                    <button class="summary-item overlap @(_relationFilter == ConflictRelation.Overlap ? "active" : "")" type="button"
+                            aria-pressed="@(_relationFilter == ConflictRelation.Overlap ? "true" : "false")"
+                            @onclick="() => SetRelationFilter(ConflictRelation.Overlap)">
+                        @Vm.T("an.relOverlap") <b>@Vm.Conflicts.OverlapCount</b>
+                    </button>
+                    <button class="summary-item coexistence @(_relationFilter == ConflictRelation.Coexistence ? "active" : "")" type="button"
+                            aria-pressed="@(_relationFilter == ConflictRelation.Coexistence ? "true" : "false")"
+                            @onclick="() => SetRelationFilter(ConflictRelation.Coexistence)">
+                        @Vm.T("an.relCoexistence") <b>@Vm.Conflicts.CoexistenceCount</b>
+                    </button>
+                    <span class="conflict-filter-state">
+                        @(_relationFilter == ConflictRelation.Coexistence
+                            ? Vm.F("an.sharedCount", Vm.Conflicts.CoexistenceFiles.Count)
+                            : Vm.F("an.showingOf", FilteredConflicts.Count(), Vm.Conflicts.Conflicts.Count))
+                    </span>
                 </div>
 
                 @if (Vm.Conflicts.LoadOrder.Count > 0)
@@ -181,82 +208,109 @@
                     </details>
                 }
 
-                <div class="conflict-table">
-                    @foreach (var conflict in Vm.Conflicts.Conflicts)
+                @if (_relationFilter == ConflictRelation.Coexistence)
+                {
+                    <div class="shared-files">
+                        <p class="muted small">@Vm.T("an.sharedHint")</p>
+                        @if (Vm.Conflicts.CoexistenceFiles.Count == 0)
+                        {
+                            <p class="muted small">@Vm.T("an.noFilter")</p>
+                        }
+                        else
+                        {
+                            <ul>
+                                @foreach (var file in Vm.Conflicts.CoexistenceFiles)
+                                {
+                                    <li>@file</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                }
+                else
+                {
+                    @if (!FilteredConflicts.Any())
                     {
-                        var expanded = _expanded.Contains(conflict);
-                        <div class="conflict-item">
-                            <div class="conflict-row">
-                                <span class="relation @RelationClass(conflict.Relation)">@RelationLabel(conflict.Relation)</span>
-                                @if (conflict.Related)
-                                {
-                                    <span class="relation related" title="@Vm.T("an.relatedHint")">@Vm.T("an.related")</span>
-                                }
-                                <div class="conflict-main">
-                                    <div class="conflict-subject">@conflict.Subject</div>
-                                    <div class="muted small">@conflict.Detail</div>
+                        <p class="muted small">@Vm.T("an.noFilter")</p>
+                    }
+
+                    <div class="conflict-table">
+                        @foreach (var conflict in FilteredConflicts)
+                        {
+                            var expanded = _expanded.Contains(conflict);
+                            <div class="conflict-item">
+                                <div class="conflict-row">
+                                    <span class="relation @RelationClass(conflict.Relation)">@RelationLabel(conflict.Relation)</span>
+                                    @if (conflict.Related)
+                                    {
+                                        <span class="relation related" title="@Vm.T("an.relatedHint")">@Vm.T("an.related")</span>
+                                    }
+                                    <div class="conflict-main">
+                                        <div class="conflict-subject">@conflict.Subject</div>
+                                        <div class="muted small">@conflict.Detail</div>
+                                    </div>
+                                    <div class="conflict-mods" title="@ModsTooltip(conflict)">@ModsLabel(conflict)</div>
+                                    @if (conflict.HasDetails)
+                                    {
+                                        <button class="conflict-toggle" type="button" @onclick="() => Toggle(conflict)">
+                                            @(expanded ? Vm.T("an.hideNodes") : Vm.T("an.showNodes"))
+                                        </button>
+                                    }
                                 </div>
-                                <div class="conflict-mods" title="@ModsTooltip(conflict)">@ModsLabel(conflict)</div>
-                                @if (conflict.HasDetails)
+
+                                @if (expanded && conflict.HasDetails)
                                 {
-                                    <button class="conflict-toggle" type="button" @onclick="() => Toggle(conflict)">
-                                        @(expanded ? Vm.T("an.hideNodes") : Vm.T("an.showNodes"))
-                                    </button>
-                                }
-                            </div>
-
-                            @if (expanded && conflict.HasDetails)
-                            {
-                                <div class="conflict-details">
-                                    <table class="patch-table">
-                                        <thead>
-                                            <tr>
-                                                <th>@Vm.T("an.colMod")</th>
-                                                <th>@Vm.T("an.colOp")</th>
-                                                <th>XPath</th>
-                                                <th>@Vm.T("an.colBefore")</th>
-                                                <th>@Vm.T("an.colAfter")</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var participant in conflict.Participants)
-                                            {
+                                    <div class="conflict-details">
+                                        <table class="patch-table">
+                                            <thead>
                                                 <tr>
-                                                    <td class="patch-mod">@participant.Mod</td>
-                                                    <td><span class="chip tiny">@participant.Operation</span></td>
-                                                    <td class="patch-xpath">@participant.XPath</td>
-                                                    <td class="patch-value">@(participant.OriginalValue ?? Vm.T("an.notFound"))</td>
-                                                    <td class="patch-value new">@(participant.NewValue ?? participant.Note ?? Vm.T("an.removal"))</td>
+                                                    <th>@Vm.T("an.colMod")</th>
+                                                    <th>@Vm.T("an.colOp")</th>
+                                                    <th>XPath</th>
+                                                    <th>@Vm.T("an.colBefore")</th>
+                                                    <th>@Vm.T("an.colAfter")</th>
                                                 </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                    <p class="muted small">
-                                        @Vm.T("an.files") @string.Join(", ", conflict.Participants.Select(p => p.File).Distinct(StringComparer.OrdinalIgnoreCase))
-                                    </p>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var participant in conflict.Participants)
+                                                {
+                                                    <tr>
+                                                        <td class="patch-mod">@participant.Mod</td>
+                                                        <td><span class="chip tiny">@participant.Operation</span></td>
+                                                        <td class="patch-xpath">@participant.XPath</td>
+                                                        <td class="patch-value">@(participant.OriginalValue ?? Vm.T("an.notFound"))</td>
+                                                        <td class="patch-value new">@(participant.NewValue ?? participant.Note ?? Vm.T("an.removal"))</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                        <p class="muted small">
+                                            @Vm.T("an.files") @string.Join(", ", conflict.Participants.Select(p => p.File).Distinct(StringComparer.OrdinalIgnoreCase))
+                                        </p>
 
-                                    <div class="resolution">
-                                        <div class="muted small">@Vm.T("an.options")</div>
-                                        <div class="resolution-options">
-                                            @foreach (var option in Vm.Suggestions(conflict))
-                                            {
-                                                <button class="btn ghost sm" type="button"
-                                                        title="@option.Description"
-                                                        disabled="@(!option.CanExport)"
-                                                        @onclick="() => Vm.CreateMergedPatchAsync(conflict, option)">
-                                                    @(option.CanExport ? $"{Vm.T("an.createPatch")} {option.Title}" : option.Title)
-                                                </button>
-                                            }
+                                        <div class="resolution">
+                                            <div class="muted small">@Vm.T("an.options")</div>
+                                            <div class="resolution-options">
+                                                @foreach (var option in Vm.Suggestions(conflict))
+                                                {
+                                                    <button class="btn ghost sm" type="button"
+                                                            title="@option.Description"
+                                                            disabled="@(!option.CanExport)"
+                                                            @onclick="() => Vm.CreateMergedPatchAsync(conflict, option)">
+                                                        @(option.CanExport ? $"{Vm.T("an.createPatch")} {option.Title}" : option.Title)
+                                                    </button>
+                                                }
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
             }
 
-            @foreach (var note in Vm.Conflicts.Notes)
+            @foreach (var note in VisibleNotes)
             {
                 <p class="muted small note">@note</p>
             }
@@ -268,6 +322,48 @@
     protected override INotifyPropertyChanged ViewModel => Vm;
 
     private string Search { get; set; } = string.Empty;
+    private ConflictRelation? _relationFilter;
+
+    private IEnumerable<ConflictEntry> FilteredConflicts => _relationFilter is { } relation
+        ? Vm.Conflicts!.Conflicts.Where(conflict => conflict.Relation == relation)
+        : Vm.Conflicts!.Conflicts;
+
+    private async Task AnalyzeAllConflicts()
+    {
+        _relationFilter = null;
+        await Vm.AnalyzeConflictsAsync();
+    }
+
+    private async Task AnalyzePackage(ModPackage package)
+    {
+        _relationFilter = null;
+        await Vm.AnalyzeAsync(package);
+    }
+
+    /// <summary>
+    /// The shared-file note repeats the whole list while that filter is open, so it is folded away.
+    /// </summary>
+    private IEnumerable<Loc> VisibleNotes
+    {
+        get
+        {
+            if (Vm.Conflicts is null)
+            {
+                return Enumerable.Empty<Loc>();
+            }
+
+            if (_relationFilter != ConflictRelation.Coexistence)
+            {
+                return Vm.Conflicts.Notes;
+            }
+
+            var prefix = Vm.T("an3.sharedDisjoint").Split("{0}")[0];
+            return Vm.Conflicts.Notes.Where(note => !note.Text.StartsWith(prefix, StringComparison.Ordinal));
+        }
+    }
+
+    private void SetRelationFilter(ConflictRelation? relation) =>
+        _relationFilter = _relationFilter == relation ? null : relation;
 
     private readonly HashSet<ConflictEntry> _expanded = new();
 

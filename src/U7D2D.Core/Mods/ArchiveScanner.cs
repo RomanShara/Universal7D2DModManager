@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 using U7D2D.Core.Archives;
 using U7D2D.Core.I18n;
 using U7D2D.Core.Infrastructure;
@@ -116,7 +117,7 @@ public static class ArchiveLocator
 public sealed class ArchiveScanner
 {
     /// <summary>Bump whenever parsing/detection changes so stale cached scans are ignored.</summary>
-    public const int Version = 3;
+    public const int Version = 6;
 
     private const long MaxModInfoBytes = 4 * 1024 * 1024;
     private readonly AppPaths _paths;
@@ -164,13 +165,31 @@ public sealed class ArchiveScanner
             }
             else
             {
-                var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                // A ModInfo.xml may sit several folders deep. Only the outermost root is
+                // installed: a nested copy would land inside another mod folder where the game
+                // does not scan for it.
+                var roots = new List<string>();
+                var entriesByRoot = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var entry in modInfoEntries)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var root = GetDirectory(entry.Key);
-                    if (!roots.Add(root)) continue;
+                    if (entriesByRoot.ContainsKey(root)) continue;
+                    roots.Add(root);
+                    entriesByRoot[root] = entry.Key;
+                }
+
+                var installedRoots = roots
+                    .Where(root => !roots.Any(other => IsNestedRoot(root, other)))
+                    .ToList();
+
+                if (installedRoots.Count != roots.Count)
+                    result.Warnings.Add(Localization.SF("mod.nestedModInfo", roots.Count - installedRoots.Count));
+
+                foreach (var root in installedRoots)
+                {
+                    var entryKey = entriesByRoot[root];
 
                     ModMetadata metadata;
                     var hasModInfo = true;
@@ -178,7 +197,7 @@ public sealed class ArchiveScanner
 
                     try
                     {
-                        var bytes = handle.ReadEntryBytes(entry.Key, MaxModInfoBytes);
+                        var bytes = handle.ReadEntryBytes(entryKey, MaxModInfoBytes);
                         if (!ModInfoParser.TryParse(bytes, out metadata, out var error))
                         {
                             metadata = ModMetadata.Unknown(GuessFolderName(fullPath, root));
@@ -196,8 +215,12 @@ public sealed class ArchiveScanner
                     }
 
                     var profile = BuildProfile(handle.Entries, root);
-                    result.Mods.Add(CreatePackage(fullPath, fileInfo, handle.FormatLabel, root, metadata, hasModInfo, warning, profile, handle.Entries.Count, sourceRoot));
+                    var package = CreatePackage(fullPath, fileInfo, handle.FormatLabel, root, metadata, hasModInfo, warning, profile, handle.Entries.Count, sourceRoot);
+                    ApplyRootCandidates(package, fullPath, root, roots, handle.Entries);
+                    result.Mods.Add(package);
                 }
+
+                DetectComposites(result, handle, fullPath, fileInfo, sourceRoot);
 
                 if (result.Mods.Count > 1)
                     result.Warnings.Add(Localization.SF("mod.multipleMods", result.Mods.Count));
@@ -284,17 +307,318 @@ public sealed class ArchiveScanner
         };
     }
 
+    // "0-Core", "1-NPCMod", "zzz_Last": prefixes that decide the load order in the game.
+    private static readonly Regex LoadOrderPrefix = new(
+        @"^(?:\d+[-_ ]|z{2,})",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Fills the root choice data. A normal archive gets no candidates: the scanner is sure and the
+    /// install stays one click. Candidates appear only when the folder name or the content root is
+    /// genuinely ambiguous.
+    /// </summary>
+    private static void ApplyRootCandidates(
+        ModPackage package,
+        string archivePath,
+        string root,
+        List<string> allRoots,
+        IReadOnlyList<ArchiveEntryInfo> entries)
+    {
+        var defaultName = package.FolderName;
+        var candidates = new List<ModRootCandidate>();
+        var nested = allRoots.Where(other => IsNestedRoot(other, root)).ToList();
+
+        var cumulative = string.Empty;
+        foreach (var segment in root.Split('/', StringSplitOptions.RemoveEmptyEntries))
+        {
+            cumulative = cumulative.Length == 0 ? segment : cumulative + "/" + segment;
+            if (GenericWrapperNames.Contains(segment)) continue;
+
+            candidates.Add(new ModRootCandidate
+            {
+                Name = segment,
+                ContentRoot = root,
+                DisplayPath = cumulative,
+                IsDefault = string.Equals(segment, defaultName, StringComparison.OrdinalIgnoreCase)
+            });
+        }
+
+        foreach (var inner in nested)
+        {
+            var name = GuessFolderName(archivePath, inner);
+            if (string.Equals(name, defaultName, StringComparison.OrdinalIgnoreCase))
+                name = inner.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? name;
+
+            candidates.Add(new ModRootCandidate
+            {
+                Name = name,
+                ContentRoot = inner,
+                DisplayPath = inner,
+                IsDefault = false
+            });
+        }
+
+        if (candidates.All(candidate => !candidate.IsDefault))
+        {
+            candidates.Insert(0, new ModRootCandidate
+            {
+                Name = defaultName,
+                ContentRoot = root,
+                DisplayPath = string.IsNullOrWhiteSpace(root) ? package.ArchiveFileName : root,
+                IsDefault = true
+            });
+        }
+
+        var previews = new Dictionary<string, (List<string> Names, int Files)>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in candidates)
+        {
+            if (!previews.TryGetValue(candidate.ContentRoot, out var preview))
+            {
+                preview = BuildPreview(entries, candidate.ContentRoot);
+                previews[candidate.ContentRoot] = preview;
+            }
+
+            candidate.TopLevelEntries = preview.Names;
+            candidate.FileCount = preview.Files;
+        }
+
+        var prefixAbove = HasPrefixedAncestor(root, defaultName);
+        package.NeedsRootChoice = prefixAbove || nested.Count > 0;
+        package.AmbiguityReason = (prefixAbove, nested.Count > 0) switch
+        {
+            (true, true) => "nested+prefix",
+            (true, false) => "prefix",
+            (false, true) => "nested",
+            _ => null
+        };
+
+        package.RootCandidates = package.NeedsRootChoice
+            ? candidates
+                .GroupBy(c => c.Name + "|" + c.ContentRoot, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList()
+            : new List<ModRootCandidate>();
+    }
+
+    private static void DetectComposites(
+        ArchiveScanResult result,
+        ArchiveHandle handle,
+        string archivePath,
+        FileInfo archiveInfo,
+        string? sourceRoot)
+    {
+        var packages = result.Mods.Where(package => !package.IsComposite).ToList();
+        if (packages.Count < 2) return;
+
+        var groups = new Dictionary<string, List<ModPackage>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var package in packages)
+        {
+            var container = FindSharedContainer(package.RootInArchive, packages, handle.Entries);
+            if (container is null) continue;
+
+            if (!groups.TryGetValue(container, out var list))
+                groups[container] = list = new List<ModPackage>();
+            list.Add(package);
+        }
+
+        foreach (var (container, components) in groups)
+        {
+            if (components.Count < 2) continue;
+
+            var shared = DirectFiles(handle.Entries, container);
+            if (shared.Count == 0 || !shared.Any(name => name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            var composite = CreateCompositePackage(
+                archivePath, archiveInfo, container, components, shared, handle.Entries, sourceRoot);
+
+            foreach (var component in components) result.Mods.Remove(component);
+            result.Mods.Add(composite);
+        }
+    }
+
+    private static string? FindSharedContainer(
+        string root,
+        List<ModPackage> packages,
+        IReadOnlyList<ArchiveEntryInfo> entries)
+    {
+        var best = (string?)null;
+        var candidate = root;
+
+        while (true)
+        {
+            var cut = candidate.LastIndexOf('/');
+            candidate = cut >= 0 ? candidate[..cut] : string.Empty;
+
+            var isPackageRoot = packages.Any(package =>
+                string.Equals(package.RootInArchive, candidate, StringComparison.OrdinalIgnoreCase));
+            if (!isPackageRoot)
+            {
+                var nested = packages.Count(package =>
+                    IsUnder(package.RootInArchive, candidate));
+                var hasDll = DirectFiles(entries, candidate)
+                    .Any(name => name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+                if (nested >= 2 && hasDll) best = candidate;
+            }
+
+            if (candidate.Length == 0) break;
+        }
+
+        return best;
+    }
+
+    private static bool IsUnder(string root, string container)
+    {
+        if (container.Length == 0) return root.Length > 0;
+        return root.StartsWith(container + "/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<string> DirectFiles(IReadOnlyList<ArchiveEntryInfo> entries, string container)
+    {
+        var prefix = container.Length == 0 ? string.Empty : container + "/";
+        var names = new List<string>();
+
+        foreach (var entry in entries)
+        {
+            if (entry.IsDirectory) continue;
+            if (prefix.Length > 0 && !entry.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var relative = entry.Key[prefix.Length..];
+            if (relative.Length == 0 || relative.Contains('/', StringComparison.Ordinal)) continue;
+            if (!names.Contains(relative, StringComparer.OrdinalIgnoreCase)) names.Add(relative);
+        }
+
+        return names.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static ModPackage CreateCompositePackage(
+        string archivePath,
+        FileInfo archiveInfo,
+        string container,
+        List<ModPackage> components,
+        List<string> sharedFiles,
+        IReadOnlyList<ArchiveEntryInfo> entries,
+        string? sourceRoot)
+    {
+        var label = GuessFolderName(archivePath, container);
+        var folder = "000-" + PathSafety.SanitizeFolderName(label, "Shared");
+        var technical = new string(folder.Select(ch =>
+            char.IsLetterOrDigit(ch) || ch == '_' || ch == '-' ? ch : '_').ToArray());
+
+        var fingerprint = HashUtil.Sha256Hex(
+            $"{archivePath.ToLowerInvariant()}|{archiveInfo.Length}|{archiveInfo.LastWriteTimeUtc.Ticks}|" +
+            $"composite|{container}|{string.Join(',', components.Select(c => c.RootInArchive))}");
+
+        var package = new ModPackage
+        {
+            Id = fingerprint[..16],
+            ArchivePath = archivePath,
+            ArchiveFileName = Path.GetFileName(archivePath),
+            RootInArchive = container,
+            FolderName = folder,
+            SharedFolder = folder,
+            IsComposite = true,
+            GeneratesModInfo = true,
+            Components = components,
+            SharedFiles = sharedFiles,
+            ExcludeRoots = components.Select(c => c.RootInArchive).ToList(),
+            Info = new ModMetadata
+            {
+                Name = technical,
+                DisplayName = $"{label} (shared files)",
+                Version = "1.0.0",
+                Author = "archive"
+            },
+            Content = BuildProfile(entries, container),
+            ArchiveSize = archiveInfo.Length,
+            ArchiveModifiedUtc = archiveInfo.LastWriteTimeUtc,
+            HasModInfo = false,
+            Fingerprint = fingerprint,
+            SourceRoot = sourceRoot ?? string.Empty
+        };
+
+        return package;
+    }
+
+    private static (List<string> Names, int Files) BuildPreview(
+        IReadOnlyList<ArchiveEntryInfo> entries, string root)
+    {
+        var prefix = string.IsNullOrWhiteSpace(root) ? string.Empty : root + "/";
+        var names = new List<string>();
+        var files = 0;
+
+        foreach (var entry in entries)
+        {
+            if (entry.IsDirectory) continue;
+            if (!entry.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var relative = entry.Key[prefix.Length..];
+            if (relative.Length == 0) continue;
+
+            files++;
+            var slash = relative.IndexOf('/');
+            var name = slash >= 0 ? relative[..(slash + 1)] : relative;
+            if (!names.Contains(name, StringComparer.OrdinalIgnoreCase)) names.Add(name);
+        }
+
+        var ordered = names
+            .OrderByDescending(name => name.Equals("ModInfo.xml", StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(name => name.EndsWith("/", StringComparison.Ordinal))
+            .ThenBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Take(12)
+            .ToList();
+
+        return (ordered, files);
+    }
+
+    private static bool HasPrefixedAncestor(string root, string defaultName)
+    {
+        var segments = root.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var chosen = Array.FindLastIndex(segments,
+            segment => string.Equals(segment, defaultName, StringComparison.OrdinalIgnoreCase));
+
+        // The name may come from the archive file, not from a folder inside it.
+        var limit = chosen >= 0 ? chosen : segments.Length;
+        for (var i = 0; i < limit; i++)
+            if (LoadOrderPrefix.IsMatch(segments[i])) return true;
+
+        return false;
+    }
+
+    private static readonly HashSet<string> GenericWrapperNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "mod", "mods", "mod folder", "modfile", "modfiles", "files", "file", "content",
+        "package", "archive", "root", "game", "7dtd", "7daystodie", "7 days to die"
+    };
+
+    /// <summary>
+    /// Folder name the mod gets inside Mods. The deepest real folder wins: that is the name the
+    /// author ships and the game sorts by. Generic wrappers are skipped, so "0-Core/mod/ModInfo.xml"
+    /// stays "0-Core" and keeps its load-order prefix.
+    /// </summary>
     private static string GuessFolderName(string archivePath, string root)
     {
         if (!string.IsNullOrWhiteSpace(root))
         {
-            var index = root.LastIndexOf('/');
-            var name = index >= 0 ? root[(index + 1)..] : root;
-            if (!string.IsNullOrWhiteSpace(name)) return name;
+            var segments = root.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            for (var i = segments.Length - 1; i >= 0; i--)
+            {
+                var name = segments[i].Trim();
+                if (name.Length > 0 && !GenericWrapperNames.Contains(name)) return name;
+            }
         }
+
         return BaseNameWithoutArchiveExtension(archivePath);
     }
 
+    /// <summary>True when a mod root sits inside another root of the same archive.</summary>
+    private static bool IsNestedRoot(string root, string other)
+    {
+        if (string.IsNullOrWhiteSpace(other) || string.IsNullOrWhiteSpace(root)) return false;
+        if (string.Equals(root, other, StringComparison.OrdinalIgnoreCase)) return false;
+        return root.StartsWith(other + "/", StringComparison.OrdinalIgnoreCase);
+    }
     /// <summary>Strips compound archive extensions so "Mod.tar.gz" becomes "Mod", not "Mod.tar".</summary>
     internal static string BaseNameWithoutArchiveExtension(string path)
     {

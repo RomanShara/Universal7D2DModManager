@@ -38,6 +38,33 @@ public sealed class ModPackage
     public long ArchiveSize { get; set; }
     public DateTime ArchiveModifiedUtc { get; set; }
     public bool HasModInfo { get; set; }
+
+    /// <summary>Possible roots when the archive structure is ambiguous. Empty for a normal archive.</summary>
+    public List<ModRootCandidate> RootCandidates { get; set; } = new();
+
+    /// <summary>True when the scanner cannot pick the install folder without guessing.</summary>
+    public bool NeedsRootChoice { get; set; }
+
+    /// <summary>Why the choice is needed: nested ModInfo.xml, a load-order prefix above, or both.</summary>
+    public string? AmbiguityReason { get; set; }
+
+    /// <summary>True when the archive is a container with shared files and several child mods.</summary>
+    public bool IsComposite { get; set; }
+
+    /// <summary>Child mods of a composite archive. Empty for a normal package.</summary>
+    public List<ModPackage> Components { get; set; } = new();
+
+    /// <summary>Files directly inside the container, shown in the library card.</summary>
+    public List<string> SharedFiles { get; set; } = new();
+
+    /// <summary>Folder name for the generated mod that carries the shared files.</summary>
+    public string? SharedFolder { get; set; }
+
+    /// <summary>Container-relative roots that belong to child mods and must not be copied as shared files.</summary>
+    public List<string> ExcludeRoots { get; set; } = new();
+
+    /// <summary>Install writes a generated ModInfo.xml for this package.</summary>
+    public bool GeneratesModInfo { get; set; }
     public string? Warning { get; set; }
 
     /// <summary>Stable fingerprint of the archive + subtree, used to detect package changes.</summary>
@@ -47,4 +74,28 @@ public sealed class ModPackage
     public string VersionLabel => Info.VersionOrUnknown;
 
     public override string ToString() => $"{DisplayTitle} ({VersionLabel}) @ {ArchiveFileName}";
+}
+
+/// <summary>One way to install an archive: the folder name and the subtree it comes from.</summary>
+public sealed class ModRootCandidate
+{
+    /// <summary>Name the folder gets inside Mods. It decides the load order.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Directory inside the archive whose contents are installed.</summary>
+    public string ContentRoot { get; set; } = string.Empty;
+
+    /// <summary>Archive path shown in the choice dialog, for example "0-Core/Release/CoreMod".</summary>
+    public string DisplayPath { get; set; } = string.Empty;
+
+    /// <summary>Names directly under the content root, shown in the choice dialog.</summary>
+    public List<string> TopLevelEntries { get; set; } = new();
+
+    /// <summary>Number of files under the content root.</summary>
+    public int FileCount { get; set; }
+
+    /// <summary>The scanner would pick this one without asking.</summary>
+    public bool IsDefault { get; set; }
+
+    public override string ToString() => $"{Name} <- {DisplayPath}";
 }

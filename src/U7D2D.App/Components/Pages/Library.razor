@@ -178,6 +178,54 @@
     </div>
 }
 
+@if (Vm.IsRootChoiceOpen)
+{
+    <div class="modal-backdrop">
+        <div class="modal root-choice">
+            <div class="modal-icon info"><Icon Name="layers" Size="18" /></div>
+            <h3 class="modal-title">@Vm.T("root.title")</h3>
+            <p class="modal-text">@Vm.F("root.archive", Vm.RootChoiceArchive)</p>
+            <p class="modal-text root-choice-hint">@Vm.T("root.hint")</p>
+
+            <div class="root-options">
+                @foreach (var option in Vm.RootChoiceCandidates)
+                {
+                    <label class="root-option @(ReferenceEquals(option, Vm.RootChoiceSelected) ? "active" : "")">
+                        <input type="radio" name="rootChoice"
+                               checked="@ReferenceEquals(option, Vm.RootChoiceSelected)"
+                               @onchange="() => Vm.SelectRootChoice(option)" />
+                        <span class="root-option-name">@option.Name</span>
+                        <span class="root-option-path">@option.DisplayPath</span>
+                    </label>
+                }
+            </div>
+
+            @if (Vm.RootChoiceSelected is { } selected)
+            {
+                <div class="root-preview">
+                    <div class="root-preview-title">@Vm.F("root.previewTitle", selected.Name)</div>
+                    <div class="root-preview-list">
+                        <span class="root-preview-item root-preview-file">ModInfo.xml</span>
+                        @foreach (var entry in selected.TopLevelEntries
+                            .Where(e => !e.Equals("ModInfo.xml", StringComparison.OrdinalIgnoreCase))
+                            .Take(8))
+                        {
+                            <span class="root-preview-item">@entry</span>
+                        }
+                    </div>
+                    <div class="muted small">@Vm.F("root.files", selected.FileCount)</div>
+                </div>
+            }
+
+            <div class="modal-actions">
+                <button class="btn ghost" type="button" @onclick="() => Vm.SkipRootChoice()">@Vm.T("root.skip")</button>
+                <button class="btn primary" type="button" disabled="@(!Vm.RootChoiceCanInstall)"
+                        @onclick="() => Vm.ConfirmRootChoice()">@Vm.T("root.install")</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     protected override INotifyPropertyChanged ViewModel => Vm;
 }

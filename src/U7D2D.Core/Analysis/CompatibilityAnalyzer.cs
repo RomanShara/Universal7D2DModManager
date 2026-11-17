@@ -45,31 +45,31 @@ public sealed class CompatibilityAnalyzer
         {
             report.Verdict = CompatibilityVerdict.Unknown;
             report.Confidence = 0;
-            report.Headline = Localization.S("ca.noGameHeadline");
-            report.Summary = Localization.S("ca.noGameSummary");
+            report.HeadlineLoc = new Loc("ca.noGameHeadline");
+            report.SummaryLoc = new Loc("ca.noGameSummary");
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.High,
-                Category = Localization.S("ca.catGame"),
-                Title = Localization.S("ca.gameNotFoundTitle"),
-                Detail = Localization.S("ca.gameNotFoundDetail"),
-                Evidence = string.Join("; ", game.Problems.DefaultIfEmpty(Localization.S("ca.pathNotSet"))),
+                CategoryLoc = new Loc("ca.catGame"),
+                TitleLoc = new Loc("ca.gameNotFoundTitle"),
+                DetailLoc = new Loc("ca.gameNotFoundDetail"),
+                Evidence = string.Join("; ", game.Problems.DefaultIfEmpty(new Loc("ca.pathNotSet").Text)),
                 Confidence = 1
             });
-            report.NotVerified.Add(Localization.S("ca.nvAllChecks"));
+            report.NotVerified.Add(new Loc("ca.nvAllChecks"));
             return report;
         }
 
-        report.SignalsUsed.Add(Localization.SF("ca.sigGame", game.GamePath));
-        report.SignalsUsed.Add(Localization.SF("ca.sigGameVersion",
-            game.VersionString ?? Localization.S("ca.versionUndefined"),
-            game.VersionSource ?? Localization.S("ca.versionNoSource")));
+        report.SignalsUsed.Add(new Loc("ca.sigGame", game.GamePath));
+        report.SignalsUsed.Add(new Loc("ca.sigGameVersion",
+            game.VersionString ?? new Loc("ca.versionUndefined"),
+            game.VersionSource ?? new Loc("ca.versionNoSource")));
 
         var api = game.ManagedAssemblyPath is not null ? GameApiIndex.Load(game.ManagedAssemblyPath) : null;
         if (api is not null)
-            report.SignalsUsed.Add(Localization.SF("ca.sigApi", api.TypeCount, api.AssemblyVersion, api.RuntimeFamily));
+            report.SignalsUsed.Add(new Loc("ca.sigApi", api.TypeCount, api.AssemblyVersion, api.RuntimeFamily));
         else
-            report.NotVerified.Add(Localization.S("ca.nvApiCheck"));
+            report.NotVerified.Add(new Loc("ca.nvApiCheck"));
 
         var dlls = new List<ModAssemblyAnalysis>();
         var configs = new List<ConfigFileAnalysis>();
@@ -102,8 +102,8 @@ public sealed class CompatibilityAnalyzer
                     {
                         Severity = FindingSeverity.Low,
                         Category = "DLL",
-                        Title = Localization.SF("ca.dllReadFailed", Path.GetFileName(entry.Key)),
-                        Detail = Localization.S("ca.dllSkipped"),
+                        TitleLoc = new Loc("ca.dllReadFailed", Path.GetFileName(entry.Key)),
+                        DetailLoc = new Loc("ca.dllSkipped"),
                         Evidence = ex.Message,
                         Confidence = 0.9
                     });
@@ -131,8 +131,8 @@ public sealed class CompatibilityAnalyzer
                     findings.Add(new AnalysisFinding
                     {
                         Severity = FindingSeverity.Low,
-                        Category = Localization.S("ca.catConfig"),
-                        Title = Localization.SF("ca.dllReadFailed", Path.GetFileName(entry.Key)),
+                        CategoryLoc = new Loc("ca.catConfig"),
+                        TitleLoc = new Loc("ca.dllReadFailed", Path.GetFileName(entry.Key)),
                         Evidence = ex.Message,
                         Confidence = 0.9
                     });
@@ -143,13 +143,13 @@ public sealed class CompatibilityAnalyzer
         {
             report.Verdict = CompatibilityVerdict.Unknown;
             report.Confidence = 0;
-            report.Headline = Localization.S("ca.archiveUnreadable");
-            report.Summary = Localization.S("ca.archiveUnreadableSummary");
+            report.HeadlineLoc = new Loc("ca.archiveUnreadable");
+            report.SummaryLoc = new Loc("ca.archiveUnreadableSummary");
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.High,
-                Category = Localization.S("ca.catArchive"),
-                Title = Localization.S("ca.archiveReadError"),
+                CategoryLoc = new Loc("ca.catArchive"),
+                TitleLoc = new Loc("ca.archiveReadError"),
                 Detail = ex.Message,
                 Evidence = package.ArchivePath,
                 Confidence = 1
@@ -157,7 +157,7 @@ public sealed class CompatibilityAnalyzer
             return report;
         }
 
-        report.SignalsUsed.Add(Localization.SF("ca.sigCounts", dlls.Count, configs.Count));
+        report.SignalsUsed.Add(new Loc("ca.sigCounts", dlls.Count, configs.Count));
 
         AnalyzeAssemblies(dlls, api, shipsHarmony, game, installed, findings, report);
         AnalyzeConfigs(configs, findings, report);
@@ -187,9 +187,9 @@ public sealed class CompatibilityAnalyzer
             {
                 Severity = FindingSeverity.Medium,
                 Category = "DLL",
-                Title = Localization.SF("ca.dllNotParsedTitle", dll.FileName),
-                Detail = Localization.S("ca.dllNotParsedDetail"),
-                Evidence = dll.Error ?? Localization.S("ca.noDetails"),
+                TitleLoc = new Loc("ca.dllNotParsedTitle", dll.FileName),
+                DetailLoc = new Loc("ca.dllNotParsedDetail"),
+                EvidenceLoc = dll.Error is { Length: > 0 } readError ? readError : new Loc("ca.noDetails"),
                 Confidence = 0.9
             });
         }
@@ -200,9 +200,9 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Critical,
-                Category = Localization.S("ca.catGameApi"),
-                Title = Localization.SF("ca.missingTypesTitle", missingTypes.Count),
-                Detail = Localization.S("ca.missingTypesDetail"),
+                CategoryLoc = new Loc("ca.catGameApi"),
+                TitleLoc = new Loc("ca.missingTypesTitle", missingTypes.Count),
+                DetailLoc = new Loc("ca.missingTypesDetail"),
                 Evidence = string.Join(", ", missingTypes.Take(10)) + (missingTypes.Count > 10 ? " …" : string.Empty),
                 Confidence = 0.85
             });
@@ -214,9 +214,9 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Critical,
-                Category = Localization.S("ca.catGameApi"),
-                Title = Localization.SF("ca.missingMembersTitle", missingMembers.Count),
-                Detail = Localization.S("ca.missingMembersDetail"),
+                CategoryLoc = new Loc("ca.catGameApi"),
+                TitleLoc = new Loc("ca.missingMembersTitle", missingMembers.Count),
+                DetailLoc = new Loc("ca.missingMembersDetail"),
                 Evidence = string.Join(", ", missingMembers.Take(10)) + (missingMembers.Count > 10 ? " …" : string.Empty),
                 Confidence = 0.85
             });
@@ -225,7 +225,7 @@ public sealed class CompatibilityAnalyzer
         var missingTargets = dlls.SelectMany(d => d.MissingHarmonyTargets).Distinct(StringComparer.Ordinal).ToList();
         var patchTargets = dlls.Sum(d => d.HarmonyPatchTargets.Count);
         if (patchTargets > 0)
-            report.SignalsUsed.Add(Localization.SF("ca.sigHarmonyPatches", patchTargets));
+            report.SignalsUsed.Add(new Loc("ca.sigHarmonyPatches", patchTargets));
 
         if (missingTargets.Count > 0)
         {
@@ -233,8 +233,8 @@ public sealed class CompatibilityAnalyzer
             {
                 Severity = FindingSeverity.High,
                 Category = "Harmony",
-                Title = Localization.SF("ca.missingTargetsTitle", missingTargets.Count),
-                Detail = Localization.S("ca.missingTargetsDetail"),
+                TitleLoc = new Loc("ca.missingTargetsTitle", missingTargets.Count),
+                DetailLoc = new Loc("ca.missingTargetsDetail"),
                 Evidence = string.Join(", ", missingTargets.Take(10)) + (missingTargets.Count > 10 ? " …" : string.Empty),
                 Confidence = 0.75
             });
@@ -248,11 +248,11 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Info,
-                Category = Localization.S("ca.catGameApi"),
-                Title = Localization.S("ca.apiVerifiedTitle"),
-                Detail = Localization.SF("ca.apiVerifiedDetail", typeRefs, memberRefs),
-                Evidence = api.AssemblyVersion is "0.0.0.0" or "0.0.0"
-                    ? Localization.S("ca.apiVersionUnspecified")
+                CategoryLoc = new Loc("ca.catGameApi"),
+                TitleLoc = new Loc("ca.apiVerifiedTitle"),
+                DetailLoc = new Loc("ca.apiVerifiedDetail", typeRefs, memberRefs),
+                EvidenceLoc = api.AssemblyVersion is "0.0.0.0" or "0.0.0"
+                    ? new Loc("ca.apiVersionUnspecified")
                     : $"Assembly-CSharp {api.AssemblyVersion}",
                 Confidence = 0.8
             });
@@ -271,9 +271,9 @@ public sealed class CompatibilityAnalyzer
                 findings.Add(new AnalysisFinding
                 {
                     Severity = FindingSeverity.High,
-                    Category = Localization.S("ca.catRuntime"),
-                    Title = Localization.S("ca.coreClrTitle"),
-                    Detail = Localization.SF("ca.coreClrDetail", api.RuntimeFamily),
+                    CategoryLoc = new Loc("ca.catRuntime"),
+                    TitleLoc = new Loc("ca.coreClrTitle"),
+                    DetailLoc = new Loc("ca.coreClrDetail", api.RuntimeFamily),
                     Evidence = string.Join(", ", coreClrDlls.Select(d => $"{d.FileName}: {d.TargetFramework ?? d.RuntimeFamily}")),
                     Confidence = 0.65
                 });
@@ -283,11 +283,11 @@ public sealed class CompatibilityAnalyzer
                 findings.Add(new AnalysisFinding
                 {
                     Severity = FindingSeverity.Info,
-                    Category = Localization.S("ca.catRuntime"),
-                    Title = Localization.S("ca.runtimeOkTitle"),
-                    Detail = frameworkDlls.Count > 0
-                        ? Localization.S("ca.runtimeFrameworkDetail")
-                        : Localization.SF("ca.runtimeMixedDetail", string.Join(", ", families), api.RuntimeFamily),
+                    CategoryLoc = new Loc("ca.catRuntime"),
+                    TitleLoc = new Loc("ca.runtimeOkTitle"),
+                    DetailLoc = frameworkDlls.Count > 0
+                        ? new Loc("ca.runtimeFrameworkDetail")
+                        : new Loc("ca.runtimeMixedDetail", string.Join(", ", families), api.RuntimeFamily),
                     Evidence = string.Join("; ", dlls.Where(d => d.TargetFramework is not null).Select(d => $"{d.FileName}: {d.TargetFramework}")),
                     Confidence = 0.6
                 });
@@ -312,8 +312,8 @@ public sealed class CompatibilityAnalyzer
                 {
                     Severity = FindingSeverity.High,
                     Category = "Harmony",
-                    Title = Localization.S("ca.harmonyMissingTitle"),
-                    Detail = Localization.S("ca.harmonyMissingDetail"),
+                    TitleLoc = new Loc("ca.harmonyMissingTitle"),
+                    DetailLoc = new Loc("ca.harmonyMissingDetail"),
                     Evidence = string.Join(", ", harmonyUsers.Select(d => d.FileName)),
                     Confidence = 0.7
                 });
@@ -324,12 +324,12 @@ public sealed class CompatibilityAnalyzer
                 {
                     Severity = FindingSeverity.Info,
                     Category = "Harmony",
-                    Title = Localization.S("ca.harmonyOkTitle"),
-                    Detail = gameHasHarmony
-                        ? Localization.S("ca.harmonyInManaged")
+                    TitleLoc = new Loc("ca.harmonyOkTitle"),
+                    DetailLoc = gameHasHarmony
+                        ? new Loc("ca.harmonyInManaged")
                         : installedHarmony
-                            ? Localization.SF("ca.harmonyFromMod", harmonyMod!.DisplayTitle)
-                            : Localization.S("ca.harmonyShipsOwn"),
+                            ? new Loc("ca.harmonyFromMod", harmonyMod!.DisplayTitle)
+                            : new Loc("ca.harmonyShipsOwn"),
                     Evidence = string.Join(", ", harmonyUsers.Select(d => d.FileName)),
                     Confidence = 0.75
                 });
@@ -342,9 +342,9 @@ public sealed class CompatibilityAnalyzer
             {
                 Severity = FindingSeverity.Medium,
                 Category = "Harmony",
-                Title = Localization.S("ca.shipsHarmonyTitle"),
-                Detail = Localization.S("ca.shipsHarmonyDetail"),
-                Evidence = Localization.S("ca.shipsHarmonyEvidence"),
+                TitleLoc = new Loc("ca.shipsHarmonyTitle"),
+                DetailLoc = new Loc("ca.shipsHarmonyDetail"),
+                EvidenceLoc = new Loc("ca.shipsHarmonyEvidence"),
                 Confidence = 0.8
             });
         }
@@ -362,10 +362,10 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Low,
-                Category = Localization.S("ca.catConfig"),
-                Title = Localization.SF("ca.xmlNotParsedTitle", failure.RelativePath),
-                Detail = Localization.S("ca.xmlNotParsedDetail"),
-                Evidence = failure.Error ?? Localization.S("ca.noDetails"),
+                CategoryLoc = new Loc("ca.catConfig"),
+                TitleLoc = new Loc("ca.xmlNotParsedTitle", failure.RelativePath),
+                DetailLoc = new Loc("ca.xmlNotParsedDetail"),
+                EvidenceLoc = failure.Error is { Length: > 0 } parseError ? parseError : new Loc("ca.noDetails"),
                 Confidence = 0.8
             });
         }
@@ -376,9 +376,9 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Medium,
-                Category = Localization.S("ca.catConfig"),
-                Title = Localization.SF("ca.fullReplacementTitle", replacements.Count),
-                Detail = Localization.S("ca.fullReplacementDetail"),
+                CategoryLoc = new Loc("ca.catConfig"),
+                TitleLoc = new Loc("ca.fullReplacementTitle", replacements.Count),
+                DetailLoc = new Loc("ca.fullReplacementDetail"),
                 Evidence = string.Join(", ", replacements.Take(6).Select(r => r.RelativePath)) +
                            (replacements.Count > 6 ? " …" : string.Empty),
                 Confidence = 0.9
@@ -392,9 +392,9 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Info,
-                Category = Localization.S("ca.catConfig"),
-                Title = Localization.SF("ca.xpathTitle", operations, patches.Count),
-                Detail = Localization.S("ca.xpathDetail"),
+                CategoryLoc = new Loc("ca.catConfig"),
+                TitleLoc = new Loc("ca.xpathTitle", operations, patches.Count),
+                DetailLoc = new Loc("ca.xpathDetail"),
                 Evidence = string.Join(", ", patches.Take(6).Select(p => p.RelativePath)),
                 Confidence = 0.85
             });
@@ -402,7 +402,7 @@ public sealed class CompatibilityAnalyzer
 
         var windows = parsed.SelectMany(c => c.WindowNames).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (windows.Count > 0)
-            report.SignalsUsed.Add(Localization.SF("ca.sigWindows", windows.Count, string.Join(", ", windows.Take(8))));
+            report.SignalsUsed.Add(new Loc("ca.sigWindows", windows.Count, string.Join(", ", windows.Take(8))));
     }
 
     private static void AnalyzeDeclaredVersion(ModPackage package, GameInstallInfo game, AppSettings settings, List<AnalysisFinding> findings)
@@ -420,9 +420,9 @@ public sealed class CompatibilityAnalyzer
                 findings.Add(new AnalysisFinding
                 {
                     Severity = FindingSeverity.Medium,
-                    Category = Localization.S("ca.catVersion"),
-                    Title = Localization.SF("ca.declaredVersionTitle", declared),
-                    Detail = Localization.SF("ca.declaredVersionDetail", actual),
+                    CategoryLoc = new Loc("ca.catVersion"),
+                    TitleLoc = new Loc("ca.declaredVersionTitle", declared),
+                    DetailLoc = new Loc("ca.declaredVersionDetail", actual),
                     Evidence = "ModInfo.xml → GameVersion/CompatibleVersion",
                     Confidence = 0.45
                 });
@@ -435,10 +435,10 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = FindingSeverity.Low,
-                Category = Localization.S("ca.catVersion"),
-                Title = Localization.S("ca.legacyTitle"),
-                Detail = Localization.S("ca.legacyDetail"),
-                Evidence = Localization.SF("ca.legacyEvidence", package.Info.Format, package.VersionLabel),
+                CategoryLoc = new Loc("ca.catVersion"),
+                TitleLoc = new Loc("ca.legacyTitle"),
+                DetailLoc = new Loc("ca.legacyDetail"),
+                EvidenceLoc = new Loc("ca.legacyEvidence", package.Info.Format, package.VersionLabel),
                 Confidence = 0.5
             });
         }
@@ -455,15 +455,16 @@ public sealed class CompatibilityAnalyzer
             findings.Add(new AnalysisFinding
             {
                 Severity = satisfied ? FindingSeverity.Info : FindingSeverity.High,
-                Category = Localization.S("ca.catDependencies"),
-                Title = satisfied
-                    ? Localization.SF("ca.depInstalledTitle", dependency.Name)
-                    : Localization.SF("ca.depMissingTitle", dependency.Name),
-                Detail = satisfied
-                    ? Localization.S("ca.depInstalledDetail")
-                    : Localization.S("ca.depMissingDetail"),
-                Evidence = Localization.SF("ca.depEvidenceSource", dependency.Source) +
-                           (dependency.Version is null ? string.Empty : Localization.SF("ca.depEvidenceVersion", dependency.Version)),
+                CategoryLoc = new Loc("ca.catDependencies"),
+                TitleLoc = satisfied
+                    ? new Loc("ca.depInstalledTitle", dependency.Name)
+                    : new Loc("ca.depMissingTitle", dependency.Name),
+                DetailLoc = satisfied
+                    ? new Loc("ca.depInstalledDetail")
+                    : new Loc("ca.depMissingDetail"),
+                EvidenceLoc = Loc.Concat(
+                    new Loc("ca.depEvidenceSource", dependency.Source),
+                    dependency.Version is null ? Loc.Literal(string.Empty) : new Loc("ca.depEvidenceVersion", dependency.Version)),
                 Confidence = 0.85
             });
         }
@@ -485,9 +486,9 @@ public sealed class CompatibilityAnalyzer
         {
             report.Verdict = CompatibilityVerdict.Unknown;
             report.Confidence = 0.2;
-            report.Headline = Localization.S("ca.notEnoughData");
-            report.Summary = Localization.S("ca.notEnoughDataSummary");
-            report.NotVerified.Add(Localization.S("ca.nvContent"));
+            report.HeadlineLoc = new Loc("ca.notEnoughData");
+            report.SummaryLoc = new Loc("ca.notEnoughDataSummary");
+            report.NotVerified.Add(new Loc("ca.nvContent"));
             return;
         }
 
@@ -495,45 +496,45 @@ public sealed class CompatibilityAnalyzer
         {
             report.Verdict = CompatibilityVerdict.LikelyIncompatible;
             report.Confidence = Math.Min(0.9, 0.78 + critical * 0.02);
-            report.Headline = Localization.S("ca.verdictLikelyIncompatible");
-            report.Summary = Localization.SF("ca.summaryLikelyIncompatible", critical);
+            report.HeadlineLoc = new Loc("ca.verdictLikelyIncompatible");
+            report.SummaryLoc = new Loc("ca.summaryLikelyIncompatible", critical);
         }
         else if (high > 0)
         {
             report.Verdict = CompatibilityVerdict.Risky;
             report.Confidence = 0.6;
-            report.Headline = Localization.S("ca.verdictRisky");
-            report.Summary = Localization.S("ca.summaryRisky");
+            report.HeadlineLoc = new Loc("ca.verdictRisky");
+            report.SummaryLoc = new Loc("ca.summaryRisky");
         }
         else if (api is not null && referencesGame)
         {
             report.Verdict = CompatibilityVerdict.LikelyCompatible;
             report.Confidence = 0.8;
-            report.Headline = Localization.S("ca.verdictLikelyCompatible");
+            report.HeadlineLoc = new Loc("ca.verdictLikelyCompatible");
             var versionLabel = api.AssemblyVersion is "0.0.0.0" or "0.0.0"
-                ? Localization.S("ca.apiVersionUnspecified")
+                ? new Loc("ca.apiVersionUnspecified")
                 : $"Assembly-CSharp {api.AssemblyVersion}";
-            report.Summary = Localization.SF("ca.summaryCompatible", versionLabel);
+            report.SummaryLoc = new Loc("ca.summaryCompatible", versionLabel);
         }
         else if (dlls.Count > 0)
         {
             report.Verdict = CompatibilityVerdict.Unknown;
             report.Confidence = 0.35;
-            report.Headline = Localization.S("ca.verdictNeedsGame");
-            report.Summary = Localization.S("ca.summaryNeedsGame");
+            report.HeadlineLoc = new Loc("ca.verdictNeedsGame");
+            report.SummaryLoc = new Loc("ca.summaryNeedsGame");
         }
         else
         {
             report.Verdict = CompatibilityVerdict.LikelyCompatible;
             report.Confidence = 0.6;
-            report.Headline = Localization.S("ca.verdictLikelyCompatible");
-            report.Summary = Localization.S("ca.summaryXmlOnly");
+            report.HeadlineLoc = new Loc("ca.verdictLikelyCompatible");
+            report.SummaryLoc = new Loc("ca.summaryXmlOnly");
         }
 
-        report.NotVerified.Add(Localization.S("ca.nvLaunch"));
-        report.NotVerified.Add(Localization.S("ca.nvHarmonyRuntime"));
-        report.NotVerified.Add(Localization.S("ca.nvOtherMods"));
-        report.SignalsUsed.Add(Localization.S("ca.sigMethod"));
+        report.NotVerified.Add(new Loc("ca.nvLaunch"));
+        report.NotVerified.Add(new Loc("ca.nvHarmonyRuntime"));
+        report.NotVerified.Add(new Loc("ca.nvOtherMods"));
+        report.SignalsUsed.Add(new Loc("ca.sigMethod"));
     }
 
     private static string? NormalizeVersionToken(string value)

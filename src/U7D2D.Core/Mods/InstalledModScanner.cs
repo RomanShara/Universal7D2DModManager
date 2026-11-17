@@ -56,6 +56,8 @@ public sealed class InstalledModScanner
             ModMetadata metadata;
             var warnings = new List<string>();
 
+            known.TryGetValue(name, out var stored);
+
             if (hasModInfo)
             {
                 try
@@ -64,7 +66,12 @@ public sealed class InstalledModScanner
                 }
                 catch (Exception ex)
                 {
-                    metadata = ModMetadata.Unknown(name);
+                    // The file can be locked by a running game or an antivirus. The last scan still
+                    // knows the version, so an update stays visible instead of turning into Reinstall.
+                    metadata = stored?.Info is { } previous && !string.IsNullOrWhiteSpace(previous.Version)
+                        ? previous
+                        : ModMetadata.Unknown(name);
+
                     warnings.Add(Localization.SF("mod.installedModInfoCorrupt", ex.Message));
                 }
             }
@@ -73,8 +80,6 @@ public sealed class InstalledModScanner
                 metadata = ModMetadata.Unknown(name);
                 warnings.Add(Localization.S("mod.modInfoAbsent"));
             }
-
-            known.TryGetValue(name, out var stored);
 
             var mod = new InstalledMod
             {

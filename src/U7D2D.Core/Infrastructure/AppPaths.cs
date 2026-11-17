@@ -17,7 +17,7 @@ public sealed class AppPaths
     public AppPaths(string? rootOverride)
     {
         var isOverride = !string.IsNullOrWhiteSpace(rootOverride);
-        Root = isOverride ? rootOverride! : ResolveRoot();
+        Root = isOverride ? PathSafety.NormalizeDirectory(rootOverride!) : ResolveRoot();
 
         DatabasePath = Path.Combine(Root, "manager.db");
         LogDirectory = Path.Combine(Root, "logs");
@@ -39,22 +39,14 @@ public sealed class AppPaths
     /// <summary>True when the Data folder next to the executable accepts writes.</summary>
     public bool IsWritable { get; private set; }
 
-    private static string ResolveRoot() => Path.Combine(AppContext.BaseDirectory, DataFolderName);
-
-    private static bool CanWriteTo(string directory)
+    private static string ResolveRoot()
     {
-        try
-        {
-            Directory.CreateDirectory(directory);
-            var probe = Path.Combine(directory, ".write-probe");
-            File.WriteAllText(probe, "ok");
-            File.Delete(probe);
-            return true;
-        }
-        catch (Exception)
-        {
-            return false;
-        }
+        // The per-user copy started from a read-only folder points all versions at one shared data
+        // folder, so an update never strands the database, settings or backups in an old copy.
+        var shared = Environment.GetEnvironmentVariable("U7D2D_DATA_ROOT");
+        if (!string.IsNullOrWhiteSpace(shared)) return PathSafety.NormalizeDirectory(shared);
+
+        return Path.Combine(AppContext.BaseDirectory, DataFolderName);
     }
 
     public void EnsureCreated()
@@ -65,7 +57,7 @@ public sealed class AppPaths
         Directory.CreateDirectory(CacheDirectory);
         Directory.CreateDirectory(ConfigBackupDirectory);
 
-        IsWritable = CanWriteTo(Root);
+        IsWritable = PathSafety.IsDirectoryWritable(Root);
     }
 
     /// <summary>Creates a unique working folder under temp and returns its path.</summary>

@@ -25,6 +25,7 @@ public sealed class NexusModInfo
     [JsonPropertyName("status")] public string Status { get; set; } = string.Empty;
     [JsonPropertyName("updated_timestamp")] public long UpdatedTimestamp { get; set; }
     [JsonPropertyName("domain_name")] public string DomainName { get; set; } = string.Empty;
+    [JsonPropertyName("picture_url")] public string PictureUrl { get; set; } = string.Empty;
 }
 
 public sealed class NexusModFile
@@ -107,17 +108,25 @@ public sealed class NexusModUpdate
     public string DisplayName { get; set; } = string.Empty;
     public string LocalVersion { get; set; } = string.Empty;
     public string RemoteVersion { get; set; } = string.Empty;
+    /// <summary>Version shown on the mod page; often the game version, never used as the mod version alone.</summary>
+    public string PageVersion { get; set; } = string.Empty;
     public string RemoteName { get; set; } = string.Empty;
     public int ModId { get; set; }
     public string GameDomain { get; set; } = "7daystodie";
     public string? PageUrl { get; set; }
     public string? FilesUrl { get; set; }
     public string? ChangelogUrl { get; set; }
+    /// <summary>Primary screenshot reported by the API; null when absent or not a Nexus https URL.</summary>
+    public string? PictureUrl { get; set; }
     public string? LatestFileName { get; set; }
     public string? LatestFileVersion { get; set; }
     public DateTime? RemoteUpdatedUtc { get; set; }
     public NexusCheckStatus Status { get; set; } = NexusCheckStatus.Unknown;
     public string Message { get; set; } = string.Empty;
+    /// <summary>Version from the player's archive library that matched the Nexus build, if any.</summary>
+    public string? LibraryVersion { get; set; }
+    /// <summary>Version of the update rules that produced this verdict; 0 means an old cache.</summary>
+    public int RulesVersion { get; set; }
     public DateTime CheckedUtc { get; set; } = DateTime.UtcNow;
 
     public bool IsUpdate => Status == NexusCheckStatus.UpdateAvailable;

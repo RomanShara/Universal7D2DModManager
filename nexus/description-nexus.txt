@@ -50,6 +50,10 @@ the folder.
 One thing worth saying plainly: this is not a mod, and it does not need EAC disabled. It reads files
 and launches the game the same way a shortcut would.
 
+The source code is public, so anyone can check what the executable does and build it themselves:
+[url=https://github.com/RomanShara/Universal7D2DModManager]github.com/RomanShara/Universal7D2DModManager[/url]
+Downloads stay here on Nexus.
+
 If you find a conflict that the manager reports but that does not actually break anything, or the
 other way round, there is a Save diagnostics button in Settings. It writes one text file with the
 version, folders, detected game version, installed mods and the last operations. Attach it together
@@ -108,6 +112,10 @@ ______________________________________________________________________________
 
 Варто сказати прямо: це не мод, і вимикати EAC для нього не потрібно. Він читає файли та запускає гру
 так само, як це робив би ярлик.
+
+Вихідний код відкритий, щоб кожен міг подивитися, що робить файл, і зібрати його сам:
+[url=https://github.com/RomanShara/Universal7D2DModManager]github.com/RomanShara/Universal7D2DModManager[/url]
+Завантаження залишається тут, на Nexus.
 
 Якщо знайдете конфлікт, який менеджер показує, але насправді нічого не ламає, або навпаки, у
 налаштуваннях є кнопка «Зберегти діагностику». Вона записує один текстовий файл із версією, папками,

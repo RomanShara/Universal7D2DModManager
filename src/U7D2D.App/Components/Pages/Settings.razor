@@ -17,7 +17,7 @@
         <div class="field">
             <label>@Vm.T("set.gameFolder")</label>
             <div class="input-row">
-                <input type="text" @bind="Vm.Settings.GamePath" />
+                <input type="text" @bind="Vm.Settings.GamePath" aria-label="@Vm.T("set.gameFolder")" />
                 <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("game")'>
                     <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
                 </button>
@@ -27,7 +27,7 @@
         <div class="field">
             <label>@Vm.T("set.modsFolder")</label>
             <div class="input-row">
-                <input type="text" @bind="Vm.Settings.ModsPath" />
+                <input type="text" @bind="Vm.Settings.ModsPath" aria-label="@Vm.T("set.modsFolder")" />
                 <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("mods")'>
                     <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
                 </button>
@@ -37,7 +37,7 @@
         <div class="field">
             <label>@Vm.T("set.backupsFolder")</label>
             <div class="input-row">
-                <input type="text" @bind="Vm.Settings.BackupsPath" placeholder="@Vm.T("set.defaultFolder")" />
+                <input type="text" @bind="Vm.Settings.BackupsPath" placeholder="@Vm.T("set.defaultFolder")" aria-label="@Vm.T("set.backupsFolder")" />
                 <button class="btn ghost" type="button" @onclick='() => Vm.PickPathAsync("backups")'>
                     <Icon Name="folder" Size="16" /> @Vm.T("set.browse")
                 </button>
@@ -135,21 +135,42 @@
         <p class="muted small nexus-note">@Vm.T("set.nexusNote")</p>
 
         <div class="field">
-            <label>@Vm.T("set.apiKey")</label>
+            <label>@Vm.T("set.nexusAccount")</label>
             <div class="input-row">
-                <input type="password" @bind="Vm.NexusApiKeyInput" autocomplete="off"
-                       placeholder="@Vm.T("set.keyPlaceholder")" />
-                <button class="btn ghost" type="button" @onclick="() => Vm.ValidateNexusKeyAsync()"
-                        disabled="@Vm.IsValidatingNexusKey">
-                    <Icon Name="shield" Size="16" /> @Vm.T("set.checkKey")
-                </button>
+                @if (Vm.IsNexusSignedIn)
+                {
+                    <button class="btn ghost" type="button" @onclick="() => Vm.SignOutNexus()">
+                        <Icon Name="shield" Size="16" /> @Vm.T("set.nexusSignOut")
+                    </button>
+                }
+                else
+                {
+                    <button class="btn ghost" type="button" @onclick="() => Vm.SignInNexusAsync()"
+                            disabled="@Vm.IsSigningInNexus">
+                        <Icon Name="shield" Size="16" /> @Vm.T("set.nexusSignIn")
+                    </button>
+                }
+                <span class="muted small">@Vm.NexusAccountText</span>
             </div>
             <div class="field-hint">
-                @Vm.T("set.keyNote")
-                <button class="link-btn" type="button" @onclick='() => Vm.OpenNexusUrl("https://www.nexusmods.com/users/myaccount?tab=api")'>@Vm.T("set.apiPage")</button>.
-                @Vm.T("set.keyQuota")
+                @Vm.T("set.nexusSignInNote")
             </div>
         </div>
+
+        @if (!Vm.IsNexusSignedIn)
+        {
+            <div class="field">
+                <label>@Vm.T("set.nexusClientId")</label>
+                <div class="input-row">
+                    <input type="text" @bind="Vm.NexusClientIdInput"
+                           placeholder="@Vm.T("set.nexusClientIdPlaceholder")" />
+                    <button class="btn ghost" type="button" @onclick="() => Vm.SaveNexusClientId()">
+                        @Vm.T("set.nexusClientIdSave")
+                    </button>
+                </div>
+                <div class="field-hint">@Vm.T("set.nexusClientIdHint")</div>
+            </div>
+        }
 
         <div class="field">
             <label>@Vm.T("set.nexusDomain")</label>

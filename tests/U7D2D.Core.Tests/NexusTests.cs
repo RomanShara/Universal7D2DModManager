@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using U7D2D.Core.Data;
+using U7D2D.Core.Infrastructure;
 using U7D2D.Core.Models;
 using U7D2D.Core.Nexus;
 
@@ -101,7 +103,10 @@ public sealed class NexusTests
     {
         var handler = new StubHandler(request =>
         {
-            Assert.Equal("secret", request.Headers.GetValues("apikey").Single());
+            // AUP: OAuth bearer token, never a personal API key.
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            Assert.Equal("secret", request.Headers.Authorization?.Parameter);
+            Assert.False(request.Headers.Contains("apikey"));
             Assert.Equal(NexusApiClient.ApplicationName,
                 request.Headers.GetValues("Application-Name").Single());
             Assert.Equal(NexusApiClient.ApplicationVersion,
@@ -177,6 +182,211 @@ public sealed class NexusTests
         Assert.False(result.Success);
         Assert.Contains("API key", result.Error);
         Assert.Equal(0, calls);
+    }
+
+    // ---------------------------------------------------------------- posters
+
+    [Fact]
+    public async Task Mod_response_keeps_the_poster_address()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK,
+            """{"mod_id":8099,"name":"0-XNPPCore","version":"3.4.05","picture_url":"https://staticdelivery.nexusmods.com/mods/105/images/8099/8099-1.jpeg"}"""));
+
+        using var client = new NexusApiClient(handler);
+        var result = await client.GetModAsync("secret", "7daystodie", 8099);
+
+        Assert.Equal("https://staticdelivery.nexusmods.com/mods/105/images/8099/8099-1.jpeg",
+            result.Data?.PictureUrl);
+    }
+
+    [Theory]
+    [InlineData("https://staticdelivery.nexusmods.com/mods/105/images/8099/8099-1.jpeg")]
+    [InlineData("https://www.nexusmods.com/7daystodie/mods/8099")]
+    public void Poster_accepts_nexus_https_addresses(string url) =>
+        Assert.Equal(url, NexusPoster.Normalize(url));
+
+    [Theory]
+    [InlineData("http://staticdelivery.nexusmods.com/mods/105/images/8099/8099-1.jpeg")]
+    [InlineData("https://nexusmods.com.evil.test/x.jpeg")]
+    [InlineData("https://evil.test/x.jpeg")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("file:///C:/x.jpeg")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Poster_rejects_anything_else(string? url) =>
+        Assert.Null(NexusPoster.Normalize(url));
+
+    [Fact]
+    public void Poster_address_survives_the_cache_roundtrip()
+    {
+        var item = new NexusModUpdate
+        {
+            FolderName = "0-XNPPCore",
+            ModId = 8099,
+            RemoteVersion = "3.4.05",
+            Status = NexusCheckStatus.UpdateAvailable,
+            PictureUrl = "https://staticdelivery.nexusmods.com/mods/105/images/8099/8099-1.jpeg"
+        };
+
+        var copy = JsonConfig.Deserialize<NexusModUpdate>(JsonConfig.Serialize(item));
+
+        Assert.Equal(item.PictureUrl, copy?.PictureUrl);
+    }
+
+    // ---------------------------------------------------------------- OAuth 2.0 + PKCE
+
+    [Fact]
+    public void Pkce_challenge_is_base64url_sha256_of_the_verifier()
+    {
+        var verifier = NexusPkce.CreateVerifier();
+
+        // RFC 7636: 43-128 characters from the unreserved set.
+        Assert.Equal(43, verifier.Length);
+        Assert.DoesNotContain('=', verifier);
+        Assert.DoesNotContain('+', verifier);
+        Assert.DoesNotContain('/', verifier);
+
+        var challenge = NexusPkce.CreateChallenge(verifier);
+        Assert.Equal(43, challenge.Length);
+        Assert.DoesNotContain('=', challenge);
+
+        var hash = System.Security.Cryptography.SHA256.HashData(Encoding.ASCII.GetBytes(verifier));
+        var expected = Convert.ToBase64String(hash).TrimEnd('=')
+            .Replace('+', '-').Replace('/', '_');
+
+        Assert.Equal(expected, challenge);
+        Assert.Equal(challenge, NexusPkce.CreateChallenge(verifier));
+    }
+
+    [Fact]
+    public void Pkce_verifiers_are_not_repeated()
+    {
+        Assert.NotEqual(NexusPkce.CreateVerifier(), NexusPkce.CreateVerifier());
+    }
+
+    [Fact]
+    public void Stored_client_id_overrides_the_build_default()
+    {
+        Assert.Equal("my-client", NexusOAuthOptions.ResolveClientId("my-client"));
+        Assert.True(NexusOAuthOptions.IsUsable("my-client"));
+
+        // The shipped placeholder and an empty value are not usable.
+        Assert.False(NexusOAuthOptions.IsUsable(NexusOAuthOptions.DefaultClientId));
+        Assert.False(NexusOAuthOptions.IsUsable(""));
+        Assert.False(NexusOAuthOptions.IsUsable(null));
+    }
+
+    [Fact]
+    public void Service_reports_configured_when_a_client_id_is_saved()
+    {
+        using var ws = new TestWorkspace();
+        var store = NewSettingsStore(ws);
+        var settings = store.Load();
+        settings.NexusOAuthClientId = "my-client";
+        store.Save(settings);
+
+        using var http = new HttpClient(new StubHandler(_ =>
+            throw new InvalidOperationException("no network expected")));
+        var oauth = new NexusOAuthService(store, http);
+
+        Assert.True(oauth.IsConfigured);
+        Assert.Equal("my-client", oauth.ClientId);
+    }
+
+    [Fact]
+    public async Task Sign_in_without_a_registered_client_id_fails_cleanly()
+    {
+        // If a real client id is supplied through the environment, this path is not the one under test.
+        if (NexusOAuthOptions.IsConfigured) return;
+
+        using var ws = new TestWorkspace();
+        var store = NewSettingsStore(ws);
+        using var http = new HttpClient(new StubHandler(_ =>
+            throw new InvalidOperationException("no network expected")));
+        var oauth = new NexusOAuthService(store, http);
+
+        var opened = false;
+        var result = await oauth.SignInAsync(_ => opened = true);
+
+        Assert.False(result.Success);
+        Assert.False(opened); // the browser must not open when the client id is unknown
+        Assert.False(string.IsNullOrWhiteSpace(result.Error));
+    }
+
+    [Fact]
+    public async Task Expired_access_token_is_refreshed_silently()
+    {
+        using var ws = new TestWorkspace();
+        var store = NewSettingsStore(ws);
+        var settings = store.Load();
+        settings.NexusAccessToken = NexusKeyProtection.Protect("old-token");
+        settings.NexusRefreshToken = NexusKeyProtection.Protect("refresh-token");
+        settings.NexusTokenExpiresUtc = DateTime.UtcNow.AddMinutes(-10);
+        store.Save(settings);
+
+        var handler = new StubHandler(request =>
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Contains("grant_type=refresh_token", request.Content!.ReadAsStringAsync().Result);
+            return Json(HttpStatusCode.OK,
+                """{"access_token":"new-token","refresh_token":"new-refresh","expires_in":3600,"token_type":"Bearer"}""");
+        });
+
+        using var http = new HttpClient(handler);
+        var oauth = new NexusOAuthService(store, http);
+
+        var token = await oauth.GetAccessTokenAsync();
+
+        Assert.Equal("new-token", token);
+        Assert.Equal("new-token", NexusKeyProtection.Unprotect(store.Load().NexusAccessToken));
+    }
+
+    [Fact]
+    public async Task Valid_access_token_is_used_without_a_network_call()
+    {
+        using var ws = new TestWorkspace();
+        var store = NewSettingsStore(ws);
+        var settings = store.Load();
+        settings.NexusAccessToken = NexusKeyProtection.Protect("good-token");
+        settings.NexusRefreshToken = NexusKeyProtection.Protect("refresh-token");
+        settings.NexusTokenExpiresUtc = DateTime.UtcNow.AddHours(1);
+        store.Save(settings);
+
+        var handler = new StubHandler(_ =>
+            throw new InvalidOperationException("no network call expected for a valid token"));
+
+        using var http = new HttpClient(handler);
+        var oauth = new NexusOAuthService(store, http);
+
+        Assert.Equal("good-token", await oauth.GetAccessTokenAsync());
+    }
+
+    [Fact]
+    public async Task Rejected_refresh_clears_the_session()
+    {
+        using var ws = new TestWorkspace();
+        var store = NewSettingsStore(ws);
+        var settings = store.Load();
+        settings.NexusAccessToken = NexusKeyProtection.Protect("old-token");
+        settings.NexusRefreshToken = NexusKeyProtection.Protect("refresh-token");
+        settings.NexusTokenExpiresUtc = DateTime.UtcNow.AddMinutes(-10);
+        store.Save(settings);
+
+        var handler = new StubHandler(_ =>
+            new HttpResponseMessage(HttpStatusCode.BadRequest) { Content = new StringContent("") });
+
+        using var http = new HttpClient(handler);
+        var oauth = new NexusOAuthService(store, http);
+
+        Assert.Null(await oauth.GetAccessTokenAsync());
+        Assert.False(oauth.IsSignedIn);
+    }
+
+    private static SettingsStore NewSettingsStore(TestWorkspace ws)
+    {
+        var database = new Database(ws.Paths);
+        database.Initialize();
+        return new SettingsStore(database);
     }
 
     private static HttpResponseMessage Json(

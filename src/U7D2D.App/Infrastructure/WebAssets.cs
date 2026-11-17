@@ -6,7 +6,10 @@ namespace U7D2D.App.Infrastructure;
 /// <summary>
 /// The web part of the interface is embedded into the executable, so the product is distributed as
 /// one file. On start the files are unpacked next to the executable, where the WebView looks for them.
-/// A version marker keeps later starts from unpacking again.
+///
+/// The marker carries the assembly version and the module version id. The id changes on every build,
+/// so a rebuilt executable with the same version still refreshes the interface; the version alone
+/// would leave old CSS and JavaScript in place after a hotfix.
 /// </summary>
 internal static class WebAssets
 {
@@ -17,29 +20,49 @@ internal static class WebAssets
         var target = Path.Combine(AppContext.BaseDirectory, "wwwroot");
         var assembly = typeof(WebAssets).Assembly;
         var version = assembly.GetName().Version?.ToString() ?? "0";
+        var build = assembly.ManifestModule.ModuleVersionId.ToString("N");
         var marker = Path.Combine(target, ".version");
+        var markerText = $"{version}|{build}";
+
+        var expected = new List<(string Name, string Path)>();
+
+        foreach (var name in assembly.GetManifestResourceNames())
+        {
+            if (!name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) continue;
+
+            var relative = name[Prefix.Length..].Replace('/', Path.DirectorySeparatorChar);
+            expected.Add((name, Path.Combine(target, relative)));
+        }
 
         try
         {
-            if (File.Exists(marker) && File.ReadAllText(marker).Trim() == version) return;
+            if (expected.Count == 0)
+                throw new IOException(Localization.SF("app.webAssetsFailed", target));
 
-            foreach (var name in assembly.GetManifestResourceNames())
+            // A matching marker is not enough: a file removed by an antivirus or a cleaning tool
+            // must be restored, not served as a missing stylesheet.
+            if (File.Exists(marker) &&
+                File.ReadAllText(marker).Trim() == markerText &&
+                expected.All(entry => File.Exists(entry.Path)))
+                return;
+
+            foreach (var (name, path) in expected)
             {
-                if (!name.StartsWith(Prefix, StringComparison.OrdinalIgnoreCase)) continue;
-
-                var relative = name[Prefix.Length..].Replace('/', Path.DirectorySeparatorChar);
-                var path = Path.Combine(target, relative);
-
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
                 using var source = assembly.GetManifestResourceStream(name);
                 if (source is null) continue;
 
-                using var file = File.Create(path);
-                source.CopyTo(file);
+                // Write next to the target and replace in one step: an interrupted extraction
+                // leaves a .tmp file, never a truncated stylesheet or script.
+                var temporary = path + ".tmp";
+                using (var file = File.Create(temporary)) source.CopyTo(file);
+
+                File.Move(temporary, path, overwrite: true);
             }
 
-            File.WriteAllText(marker, version);
+            // Written last, so a partial run is retried on the next start.
+            File.WriteAllText(marker, markerText);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

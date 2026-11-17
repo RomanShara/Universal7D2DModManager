@@ -27,16 +27,18 @@ public sealed class NexusUpdateService
     private readonly NexusApiClient _client;
     private readonly LogStore _log;
     private readonly CatalogStore _catalog;
+    private readonly NexusOAuthService _oauth;
 
     public NexusUpdateService(
         SettingsStore settings, NexusStore store, NexusApiClient client, LogStore log,
-        CatalogStore catalog)
+        CatalogStore catalog, NexusOAuthService oauth)
     {
         _settings = settings;
         _store = store;
         _client = client;
         _log = log;
         _catalog = catalog;
+        _oauth = oauth;
     }
 
     public string Domain =>
@@ -62,10 +64,23 @@ public sealed class NexusUpdateService
 
     public void ClearCachedResults() => _store.ClearResults();
 
-    public async Task<NexusApiResult<NexusUserInfo>> ValidateKeyAsync(
-        string plainKey, CancellationToken ct = default)
+    /// <summary>
+    /// Confirms the signed-in account works and records its display name. Called after a successful
+    /// sign-in and from the explicit "check" button; it never touches the game's Mods folder.
+    /// </summary>
+    public async Task<NexusApiResult<NexusUserInfo>> ValidateAccountAsync(CancellationToken ct = default)
     {
-        var result = await _client.ValidateAsync(plainKey, ct);
+        var token = await _oauth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
+            return new NexusApiResult<NexusUserInfo>
+            {
+                Success = false, StatusCode = 0, Error = Localization.S("nx.sessionExpired")
+            };
+
+        var result = await _client.ValidateAsync(token, ct);
+        if (result.Success && result.Data is not null)
+            _oauth.SetAccountName(result.Data.Name);
+
         _log.Add("nexus",
             result.Success
                 ? Localization.SF("nx2.keyVerified", result.Data?.Name ?? Localization.S("nx2.user"))
@@ -76,24 +91,25 @@ public sealed class NexusUpdateService
 
     public async Task<NexusCheckReport> CheckAsync(
         IReadOnlyList<InstalledMod> mods,
-        string? apiKey = null,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
         var report = new NexusCheckReport { CheckedUtc = DateTime.UtcNow };
         var settings = _settings.Load();
-        var key = (apiKey ?? NexusKeyProtection.Unprotect(settings.NexusApiKey)).Trim();
         var domain = NexusModIdResolver.NormalizeDomain(settings.NexusGameDomain);
 
-        if (string.IsNullOrWhiteSpace(key))
+        // A valid bearer token, refreshed silently when the previous one expired. Null means the
+        // user is signed out or revoked access, which the UI turns into a "sign in" prompt.
+        var token = await _oauth.GetAccessTokenAsync(ct);
+        if (string.IsNullOrWhiteSpace(token))
         {
-            report.Error = Localization.S("nx2.keyMissing");
+            report.Error = Localization.S("nx.sessionExpired");
             return report;
         }
 
         // validate.json is free (does not count towards the hourly quota) and catches
-        // a revoked key before we spend requests on every mod.
-        var validation = await _client.ValidateAsync(key, ct);
+        // a revoked token before we spend requests on every mod.
+        var validation = await _client.ValidateAsync(token, ct);
         report.RateLimit = validation.RateLimit;
         if (!validation.Success)
         {
@@ -101,11 +117,15 @@ public sealed class NexusUpdateService
             return report;
         }
 
+        if (validation.Data is not null)
+            _oauth.SetAccountName(validation.Data.Name);
+
         var links = _store.GetLinks();
 
         // Mods installed outside the manager have no source archive. The library is the only
         // place left where the original archive can still be found.
         var library = _catalog.LoadAll(ArchiveScanner.Version);
+        var libraryVersions = CollectLibraryVersions(library);
         var md5Used = 0;
         var index = 0;
 
@@ -123,7 +143,7 @@ public sealed class NexusUpdateService
                 CheckedUtc = report.CheckedUtc
             };
 
-            var resolved = await ResolveLinkAsync(mod, links, key, domain, md5Used, ct, report, library);
+            var resolved = await ResolveLinkAsync(mod, links, token, domain, md5Used, ct, report, library);
             md5Used = resolved.Md5Used;
             var link = resolved.Link;
             if (link is null)
@@ -140,7 +160,7 @@ public sealed class NexusUpdateService
             item.FilesUrl = link.FilesUrl;
             item.ChangelogUrl = link.ChangelogUrl;
 
-            var info = await _client.GetModAsync(key, link.GameDomain, link.ModId, ct);
+            var info = await _client.GetModAsync(token, link.GameDomain, link.ModId, ct);
             MergeRateLimit(report, info.RateLimit);
             if (!info.Success || info.Data is null)
             {
@@ -157,12 +177,13 @@ public sealed class NexusUpdateService
                 continue;
             }
 
-            item.RemoteVersion = info.Data.Version ?? string.Empty;
+            item.PageVersion = info.Data.Version ?? string.Empty;
             item.RemoteName = info.Data.Name;
+            item.PictureUrl = NexusPoster.Normalize(info.Data.PictureUrl);
             if (info.Data.UpdatedTimestamp > 0)
                 item.RemoteUpdatedUtc = DateTimeOffset.FromUnixTimeSeconds(info.Data.UpdatedTimestamp).UtcDateTime;
 
-            var files = await _client.GetFilesAsync(key, link.GameDomain, link.ModId, ct);
+            var files = await _client.GetFilesAsync(token, link.GameDomain, link.ModId, ct);
             MergeRateLimit(report, files.RateLimit);
             if (!files.Success)
             {
@@ -179,17 +200,23 @@ public sealed class NexusUpdateService
                 continue;
             }
 
+            string? fileVersion = null;
             var latest = PickLatestFile(files.Data);
             if (latest is not null)
             {
                 item.LatestFileName = !string.IsNullOrWhiteSpace(latest.FileName) ? latest.FileName : latest.Name;
-                item.LatestFileVersion = !string.IsNullOrWhiteSpace(latest.ModVersion)
+                fileVersion = !string.IsNullOrWhiteSpace(latest.ModVersion)
                     ? latest.ModVersion : latest.Version;
-                if (string.IsNullOrWhiteSpace(item.RemoteVersion))
-                    item.RemoteVersion = item.LatestFileVersion ?? string.Empty;
+                item.LatestFileVersion = fileVersion;
             }
 
-            Classify(item, mod.Info.Version, item.RemoteVersion);
+            var verdict = NexusUpdateRules.Decide(
+                mod.Info.Version, item.PageVersion, fileVersion, VersionsFor(libraryVersions, link.ModId));
+            item.Status = verdict.Status;
+            item.RemoteVersion = verdict.AvailableVersion;
+            item.LibraryVersion = verdict.LibraryVersion;
+            item.RulesVersion = NexusUpdateRules.Version;
+            item.Message = NexusUpdateRules.Describe(item);
             report.Items.Add(item);
             await PolitePause(ct);
         }
@@ -210,7 +237,7 @@ public sealed class NexusUpdateService
     private async Task<(NexusLink? Link, int Md5Used)> ResolveLinkAsync(
         InstalledMod mod,
         Dictionary<string, NexusLink> manualLinks,
-        string apiKey,
+        string token,
         string domain,
         int md5Used,
         CancellationToken ct,
@@ -280,7 +307,7 @@ public sealed class NexusUpdateService
         catch (IOException) { return (null, md5Used); }
         catch (UnauthorizedAccessException) { return (null, md5Used); }
 
-        var found = await _client.Md5SearchAsync(apiKey, domain, hash, ct);
+        var found = await _client.Md5SearchAsync(token, domain, hash, ct);
         MergeRateLimit(report, found.RateLimit);
         var match = found.Data?.FirstOrDefault(m => m.ModId > 0);
         if (match is null)
@@ -347,43 +374,34 @@ public sealed class NexusUpdateService
             .First();
     }
 
-    private static void Classify(NexusModUpdate item, string? local, string? remote)
+    private static Dictionary<int, List<string>> CollectLibraryVersions(List<ArchiveScanResult> library)
     {
-        if (string.IsNullOrWhiteSpace(local))
+        var map = new Dictionary<int, List<string>>();
+        foreach (var archive in library)
         {
-            item.Status = NexusCheckStatus.UncomparableVersion;
-            item.Message = Localization.S("nx2.noLocalVersion");
-            return;
-        }
-        if (string.IsNullOrWhiteSpace(remote))
-        {
-            item.Status = NexusCheckStatus.NoFiles;
-            item.Message = Localization.S("nx2.noRemoteVersion");
-            return;
+            if (!NexusArchiveName.TryRead(archive.ArchivePath, out var id, out var version)) continue;
+            if (!map.TryGetValue(id, out var versions))
+                map[id] = versions = new List<string>();
+            if (!versions.Contains(version, StringComparer.OrdinalIgnoreCase))
+                versions.Add(version);
         }
 
-        var relation = ModVersionComparer.Compare(remote, local);
-        switch (relation)
-        {
-            case VersionRelation.LeftNewer:
-                item.Status = NexusCheckStatus.UpdateAvailable;
-                item.Message = Localization.SF("nx2.updateAvailable", remote, local);
-                break;
-            case VersionRelation.Inconclusive:
-                item.Status = NexusCheckStatus.UncomparableVersion;
-                item.Message = Localization.SF("nx2.uncomparable", local, remote);
-                break;
-            default:
-                item.Status = NexusCheckStatus.UpToDate;
-                item.Message = Localization.S("nx2.upToDate");
-                break;
-        }
+        return map;
     }
 
-    private static void MergeRateLimit(NexusCheckReport report, NexusRateLimit? incoming)
+    private static IReadOnlyCollection<string> VersionsFor(
+        Dictionary<int, List<string>> map, int modId) =>
+        map.TryGetValue(modId, out var versions) ? versions : Array.Empty<string>();
+
+    /// <summary>Keeps the banner quota close to the last response without losing known values.</summary>
+    private static void MergeRateLimit(NexusCheckReport report, NexusRateLimit rate)
     {
-        if (incoming is null) return;
-        report.RateLimit = incoming;
+        if (rate.HourlyLimit.HasValue) report.RateLimit.HourlyLimit = rate.HourlyLimit;
+        if (rate.HourlyRemaining.HasValue) report.RateLimit.HourlyRemaining = rate.HourlyRemaining;
+        if (!string.IsNullOrWhiteSpace(rate.HourlyReset)) report.RateLimit.HourlyReset = rate.HourlyReset;
+        if (rate.DailyLimit.HasValue) report.RateLimit.DailyLimit = rate.DailyLimit;
+        if (rate.DailyRemaining.HasValue) report.RateLimit.DailyRemaining = rate.DailyRemaining;
+        if (!string.IsNullOrWhiteSpace(rate.DailyReset)) report.RateLimit.DailyReset = rate.DailyReset;
     }
 
     private static async Task PolitePause(CancellationToken ct)

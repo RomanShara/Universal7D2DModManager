@@ -1,0 +1,75 @@
+[B]Universal 7 Days to Die Mod Manager[/B]
+[I]The apocalypse edition of the description. The program is serious. This page is not.[/I]
+[I]Апокаліптичне видання опису. Програма серйозна. Ця сторінка ні.[/I]
+
+[center][size=4][b]Українська[/b][/size][/center]
+
+Якщо ви читаєте цей закріп, у вас, найімовірніше, 85 модів, лог розміром із роман і стійке відчуття, що винна Zzz_ReallyImportantStuff. Він не винний. Або винний. Ми не перевіряли.
+
+Це окрема програма для Windows, не мод. EAC вимикати не потрібно. Моди вона не завантажує: працює з архівами, які вже є на диску. Показує, що встановлено, хто з ким не поділив налаштування і що взагалі відбувається в лозі.
+
+[B]Системні вимоги та побічні ефекти[/B]
+[LIST]
+[*][B]RAM:[/B] 16 ГБ більше не вимагає. Але пам'ятає.
+[*][B]Одяг:[/B] після першого аналізу логів на 85 модах радимо змінити білизну. Темні кольори практичніші.
+[*][B]Нерви:[/B] лог на 85 модів це не налагодження, а тест на характер.
+[*][B]Сумісність:[/B] Windows 10/11 x64. Сумісність із білизною не гарантується.
+[*][B]Підтримка:[/B] автор теж кричав на монітор. Монітор вижив, розробка триває.
+[/LIST]
+
+[B]Що вміє[/B]
+[LIST]
+[*]Ставить, оновлює, видаляє та зберігає резервні копії модів. Стара папка залишається до успішної заміни.
+[*]Показує, що насправді лежить у Mods, і перевіряє оновлення на Nexus, якщо ви дали свій ключ API. Ключ лише для перевірки, не для завантаження.
+[*]Розбирає логи: групує повтори, тримає стек біля потрібної помилки й не призначає винуватця навмання. Якщо лог мовчить, ми мовчимо разом із ним.
+[/LIST]
+
+[B]Чого не робить[/B]
+[LIST]
+[*]Не гарантує, що всі 85 модів порозуміються. Ніхто не гарантує.
+[*]Не виправляє всі конфлікти автоматично. Якщо виправляє, то окремим патч-модом.
+[*]Не обіцяє відсутності вильотів. Обіцяє, що ви знатимете, кого звинувачувати. Або хоча б підозрювати.
+[/LIST]
+
+Якщо щось пішло не так: Settings → Save diagnostics. Додайте файл і назви модів. Фото білизни не додавайте, ми поки не вміємо це аналізувати.
+
+Якщо менеджер знову попросить 16 ГБ, надішліть діагностику. Екзорцист за бажанням.
+
+[B]Universal 7 Days to Die Mod Manager. Ми керуємо не лише модами. Ми керуємо наслідками.[/B]
+
+______________________________________________________________________________
+
+[center][size=4][b]English[/b][/size][/center]
+
+If you are reading this pinned post, you probably have 85 mods, a log the size of a novel, and a strong feeling that Zzz_ReallyImportantStuff is to blame. It is not. Or it is. We did not check.
+
+This is a separate Windows program, not a mod. You do not need to disable EAC. It does not download mods: it works with the archives already on your disk. It shows what is installed, what refuses to share settings with what, and what is actually happening in the log.
+
+[B]System requirements and side effects[/B]
+[LIST]
+[*][B]RAM:[/B] no longer demands 16 GB. But it remembers.
+[*][B]Clothing:[/B] after the first log analysis on 85 mods, changing your underwear is recommended. Dark colors are more practical.
+[*][B]Nerves:[/B] a log with 85 mods is not debugging, it is a personality test.
+[*][B]Compatibility:[/B] Windows 10/11 x64. Underwear compatibility is not guaranteed.
+[*][B]Support:[/B] the author also screamed at the monitor. The monitor survived, development continues.
+[/LIST]
+
+[B]What it does[/B]
+[LIST]
+[*]Installs, updates, removes and backs up mods. The old folder stays until the replacement succeeds.
+[*]Shows what is really in Mods and checks Nexus for updates if you provide your API key. The key is only for checking, not downloading.
+[*]Reads logs: groups repeats, keeps the stack with the right error, and does not pick a culprit at random. If the log is silent, we are silent with it.
+[/LIST]
+
+[B]What it does not do[/B]
+[LIST]
+[*]Does not guarantee that all 85 mods will get along. Nobody can.
+[*]Does not fix every conflict automatically. If it fixes one, it writes a separate patch mod.
+[*]Does not promise no crashes. It promises you will know who to blame. Or at least suspect.
+[/LIST]
+
+If something goes wrong: Settings → Save diagnostics. Attach the file and mod names. Do not attach underwear photos, we cannot analyze those yet.
+
+If the manager asks for 16 GB again, send diagnostics. An exorcist is optional.
+
+[B]Universal 7 Days to Die Mod Manager. We don't just manage mods. We manage consequences.[/B]

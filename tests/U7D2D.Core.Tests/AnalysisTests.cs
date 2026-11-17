@@ -80,7 +80,7 @@ public sealed class AnalysisTests
         Assert.True(report.Confidence >= 0.78);
         Assert.Contains(report.Findings, f =>
             f.Severity == FindingSeverity.Critical && f.Evidence.Contains("LegacyCall"));
-        Assert.Contains(report.NotVerified, n => n.Contains("launch", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(report.NotVerified, n => n.Text.Contains("launch", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -99,6 +99,27 @@ public sealed class AnalysisTests
         Assert.Equal(CompatibilityVerdict.LikelyCompatible, report.Verdict);
         Assert.InRange(report.Confidence, 0.5, 0.7);
         Assert.Contains(report.Findings, f => f.Title.Contains("XPath"));
+    }
+
+    [Fact]
+    public void Report_text_stays_a_translation_so_it_follows_a_language_switch()
+    {
+        using var ws = new TestWorkspace();
+        var zip = ws.WriteZip("XmlOnly.zip",
+            ("XmlOnly/ModInfo.xml", TestWorkspace.ModernModInfo("XML Only", "1.0")),
+            ("XmlOnly/Config/blocks.xml", TestWorkspace.BlocksPatch("x")));
+
+        var package = new ArchiveScanner(ws.Paths).Scan(zip).Mods.Single();
+        var settings = new AppSettings { GamePath = ws.Game, ModsPath = ws.Mods };
+
+        var report = new CompatibilityAnalyzer(ws.Paths).Analyze(package, settings, Game(ws), []);
+
+        // Formatting at analysis time would freeze the language of a report that is still on
+        // screen: every visible line has to keep the key it came from.
+        Assert.NotNull(report.HeadlineLoc?.Key);
+        Assert.All(report.Findings, f => Assert.NotNull(f.TitleLoc?.Key));
+        Assert.All(report.Findings, f => Assert.NotNull(f.DetailLoc?.Key));
+        Assert.All(report.SignalsUsed, signal => Assert.NotNull(signal.Key));
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using U7D2D.Core.I18n;
+
 namespace U7D2D.Core.Models;
 
 public enum ConflictKind
@@ -111,7 +113,10 @@ public sealed class ConflictParticipant
     public string? NewValue { get; set; }
 
     /// <summary>Extra explanation, for example why a patch did not apply.</summary>
-    public string? Note { get; set; }
+    public Loc? NoteLoc { get; set; }
+
+    /// <summary>Why this participant ended up here; resolved while rendering.</summary>
+    public string? Note { get => NoteLoc?.Text; set => NoteLoc = value is null ? null : Loc.Literal(value); }
 
     public bool HasOriginalValue => OriginalValue is not null;
 }
@@ -123,7 +128,10 @@ public sealed class ConflictEntry
     public string ModA { get; set; } = string.Empty;
     public string ModB { get; set; } = string.Empty;
     public string Subject { get; set; } = string.Empty;
-    public string Detail { get; set; } = string.Empty;
+
+    /// <summary>Sentence shown under the subject, resolved while rendering so it follows the language.</summary>
+    public Loc? DetailLoc { get; set; }
+    public string Detail { get => DetailLoc?.Text ?? string.Empty; set => DetailLoc = Loc.Literal(value); }
     public double Confidence { get; set; }
 
     /// <summary>Per-mod evidence: operation, xpath and values. Empty for file-level entries.</summary>
@@ -154,10 +162,13 @@ public sealed class ConflictEntry
 public sealed class ConflictReport
 {
     public List<ConflictEntry> Conflicts { get; set; } = new();
-    public List<string> Notes { get; set; } = new();
+    public List<Loc> Notes { get; set; } = new();
 
     /// <summary>Files several mods patch without touching the same node.</summary>
     public int CoexistenceCount { get; set; }
+
+    /// <summary>The same files by name, so the summary counter can be opened as a list.</summary>
+    public List<string> CoexistenceFiles { get; set; } = new();
 
     /// <summary>Mods in the order the analysis applied them: dependencies first, then folder name.</summary>
     public List<string> LoadOrder { get; set; } = new();

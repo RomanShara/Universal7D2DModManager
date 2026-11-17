@@ -26,6 +26,7 @@ public static class AppServices
         services.AddSingleton<BackupStore>();
         services.AddSingleton<LogStore>();
         services.AddSingleton<NexusStore>();
+        services.AddSingleton<RootChoiceStore>();
 
         services.AddSingleton<ArchiveScanner>();
         services.AddSingleton<InstalledModScanner>();
@@ -40,6 +41,7 @@ public static class AppServices
         // Explicit factory: the second constructor (HttpMessageHandler) is a test seam
         // and must not be picked by the DI container.
         services.AddSingleton(_ => new NexusApiClient());
+        services.AddSingleton(sp => new NexusOAuthService(sp.GetRequiredService<SettingsStore>()));
         services.AddSingleton<NexusUpdateService>();
 
         services.AddSingleton<ModManagerService>();

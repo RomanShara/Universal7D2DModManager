@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components.WebView;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Web.WebView2.Core;
 using U7D2D.Core.Infrastructure;
+using Localization = U7D2D.Core.I18n.Localization;
 
 namespace U7D2D.App;
 
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
 
     private readonly IServiceProvider _services;
     private string? _placementPath;
+    private bool _webViewFailureReported;
 
     public MainWindow(IServiceProvider services)
     {
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         BlazorView.Services = services;
         BlazorView.BlazorWebViewInitializing += OnBlazorWebViewInitializing;
+        BlazorView.BlazorWebViewInitialized += OnBlazorWebViewInitialized;
         SourceInitialized += (_, _) => ApplyDarkTitleBar();
 
         ApplyPlacement();
@@ -152,6 +155,47 @@ public partial class MainWindow : Window
         {
             // Defaults are fine if the custom environment cannot be created.
         }
+    }
+
+    private void OnBlazorWebViewInitialized(object? sender, BlazorWebViewInitializedEventArgs e)
+    {
+        // A dead browser process leaves an empty surface; ProcessFailed is the only signal that
+        // still reaches us once the Blazor circuit is gone.
+        var core = e.WebView?.CoreWebView2;
+        if (core is null) return;
+
+        core.ProcessFailed += OnWebViewProcessFailed;
+    }
+
+    private void OnWebViewProcessFailed(object? sender, CoreWebView2ProcessFailedEventArgs e)
+    {
+        // One dialog is enough: a single crash raises the event for every affected process.
+        if (_webViewFailureReported) return;
+        _webViewFailureReported = true;
+
+        try
+        {
+            var paths = _services.GetRequiredService<AppPaths>();
+            U7D2D.App.Services.Diagnostics.SaveCrash(
+                paths,
+                new InvalidOperationException($"WebView2 process failed: {e.ProcessFailedKind}"),
+                "WebView2");
+        }
+        catch (Exception)
+        {
+            // Reporting must never mask the failure it reports.
+        }
+
+        MessageBox.Show(
+            Localization.S("app.webViewFailed"),
+            Localization.S("app.crashTitle"),
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+
+        // Only a dead browser process leaves nothing to recover. Render, GPU and utility processes
+        // are restarted by WebView2 itself, so the window stays open for those.
+        if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+            Dispatcher.Invoke(() => Close());
     }
 
     private void ApplyDarkTitleBar()

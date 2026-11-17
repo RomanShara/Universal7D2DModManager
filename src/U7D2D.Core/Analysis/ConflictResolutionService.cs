@@ -1,4 +1,7 @@
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
+using System.Xml.XPath;
 using U7D2D.Core.I18n;
 using U7D2D.Core.Models;
 
@@ -25,6 +28,12 @@ public sealed class MergedPatchResult
     public bool Success { get; init; }
     public string? FolderPath { get; init; }
     public string? Error { get; init; }
+
+    /// <summary>
+    /// How far the written patch was checked: verified against the game config, or only for structure
+    /// because the game config was not available.
+    /// </summary>
+    public List<string> Warnings { get; } = new();
 }
 
 /// <summary>
@@ -95,12 +104,15 @@ public sealed class ConflictResolutionService
     /// <summary>
     /// Writes the chosen value as a new mod folder so it applies after the conflicting mods.
     /// The folder is created only here, on explicit request, and never overwrites an existing one.
+    /// When the game path is known the patch is replayed on a copy of the game config, and a patch
+    /// that cannot find its target there is removed again instead of being left as a dead mod.
     /// </summary>
     public MergedPatchResult CreateMergedPatch(
         ConflictEntry conflict,
         ConflictResolution choice,
         string modsPath,
-        string? gameVersion = null)
+        string? gameVersion = null,
+        string? gamePath = null)
     {
         if (!choice.CanExport || choice.Value is null)
             return new MergedPatchResult { Error = Localization.S("res.cannotExport") };
@@ -116,19 +128,21 @@ public sealed class ConflictResolutionService
 
         try
         {
-            var folderName = $"ZZZ_MergedPatch_{DateTime.Now:yyyyMMdd_HHmmss}";
-            var folder = Path.Combine(modsPath, folderName);
-            Directory.CreateDirectory(folder);
+            var folder = CreatePatchFolder(modsPath);
+            var description = Localization.SF("res.patchDescription", choice.Value);
+            var displayName = $"Merged patch: {conflict.Subject}";
 
+            // Modern layout only: <ModInfo> with value attributes, which ModInfoParser reads as
+            // ModInfoFormat.ValueAttribute. Text nodes inside the fields would make it Mixed.
             var modInfo = $"""
                 <?xml version="1.0" encoding="UTF-8" ?>
-                <xml>
-                  <Name value="{folderName}" />
-                  <DisplayName value="Merged patch: {Escape(conflict.Subject)}" />
-                  <Description value="{Localization.SF("res.patchDescription", Escape(choice.Value))}" />
+                <ModInfo>
+                  <Name value="{Escape(Path.GetFileName(folder))}" />
+                  <DisplayName value="{Escape(displayName)}" />
+                  <Description value="{Escape(description)}" />
                   <Author value="Universal 7 Days to Die Mod Manager" />
                   <Version value="1.0" />
-                </xml>
+                </ModInfo>
                 """;
 
             File.WriteAllText(Path.Combine(folder, "ModInfo.xml"), modInfo, new UTF8Encoding(false));
@@ -136,21 +150,141 @@ public sealed class ConflictResolutionService
             var configPath = Path.Combine(folder, file.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
 
-            var root = Path.GetFileNameWithoutExtension(file);
+            // The game applies xpath commands only inside <configs>. Any other root is read as a
+            // replacement of the whole config file and would drop every other mod's change.
             var content = $"""
                 <?xml version="1.0" encoding="UTF-8" ?>
-                <{root}>
+                <configs>
                   <set xpath="{Escape(xpath)}">{Escape(choice.Value)}</set>
-                </{root}>
+                </configs>
                 """;
 
             File.WriteAllText(configPath, content, new UTF8Encoding(false));
 
-            return new MergedPatchResult { Success = true, FolderPath = folder };
+            var invalid = ValidatePatchFile(configPath);
+            if (invalid is not null)
+            {
+                RemoveFolder(folder);
+                return new MergedPatchResult { Error = Localization.SF("res.patchInvalid", invalid) };
+            }
+
+            var result = new MergedPatchResult { Success = true, FolderPath = folder };
+
+            var resolver = new VanillaConfigResolver(gamePath);
+            var workingCopy = resolver.IsAvailable ? resolver.CreateWorkingCopy(file) : null;
+
+            if (workingCopy is null)
+            {
+                result.Warnings.Add(Localization.S("res.patchUnverified"));
+                return result;
+            }
+
+            if (!FindsTarget(workingCopy, xpath))
+            {
+                // A patch whose xpath finds nothing does nothing in game, so it is not left behind.
+                RemoveFolder(folder);
+                return new MergedPatchResult { Error = Localization.SF("res.patchDoesNotApply", xpath) };
+            }
+
+            result.Warnings.Add(Localization.S("res.patchVerified"));
+            return result;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return new MergedPatchResult { Error = ex.Message };
+        }
+    }
+
+    /// <summary>
+    /// Creates a patch folder that cannot collide with an earlier one: two patches made in the same
+    /// second get _2, _3 and so on instead of sharing a folder.
+    /// </summary>
+    private static string CreatePatchFolder(string modsPath)
+    {
+        var stamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var folder = Path.Combine(modsPath, $"ZZZ_MergedPatch_{stamp}");
+
+        for (var suffix = 2; Path.Exists(folder); suffix++)
+            folder = Path.Combine(modsPath, $"ZZZ_MergedPatch_{stamp}_{suffix}");
+
+        Directory.CreateDirectory(folder);
+        return folder;
+    }
+
+    /// <summary>
+    /// Re-reads the written file and checks what the game depends on: the root has to be configs,
+    /// there has to be exactly one set command with an xpath, and that xpath has to compile.
+    /// Returns null when the file is usable, otherwise the technical reason.
+    /// </summary>
+    private static string? ValidatePatchFile(string path)
+    {
+        try
+        {
+            var settings = new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Ignore,
+                XmlResolver = null
+            };
+
+            XDocument document;
+            using (var reader = XmlReader.Create(path, settings))
+                document = XDocument.Load(reader);
+
+            var root = document.Root;
+            if (root is null || !root.Name.LocalName.Equals("configs", StringComparison.OrdinalIgnoreCase))
+                return $"root element is <{root?.Name.LocalName}>, expected <configs>";
+
+            var commands = root.Elements()
+                .Where(e => e.Name.LocalName.Equals("set", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (commands.Count != 1)
+                return $"expected one <set> command, found {commands.Count}";
+
+            var xpath = commands[0].Attribute("xpath")?.Value;
+            if (string.IsNullOrWhiteSpace(xpath))
+                return "the <set> command carries no xpath";
+
+            XPathExpression.Compile(xpath);
+            return null;
+        }
+        catch (Exception ex) when (ex is XmlException or XPathException or IOException or UnauthorizedAccessException)
+        {
+            return ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// True when the xpath finds its target in the given config copy. The attribute step is a node
+    /// of the XPath tree, so selecting the attribute itself checks both that the element matches and
+    /// that the attribute exists: selecting a missing attribute yields an empty set, not an error,
+    /// and would otherwise pass as a working patch.
+    /// </summary>
+    private static bool FindsTarget(XDocument document, string xpath)
+    {
+        try
+        {
+            var navigator = document.CreateNavigator();
+            if (navigator is null) return false;
+
+            var matches = navigator.Select(XPathExpression.Compile(xpath));
+            return matches.MoveNext();
+        }
+        catch (Exception ex) when (ex is XPathException or XmlException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Removes a folder created by this method, so a patch that cannot work is never left behind.</summary>
+    private static void RemoveFolder(string folder)
+    {
+        try
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The folder stays on disk; the caller still reports why the patch was rejected.
         }
     }
 

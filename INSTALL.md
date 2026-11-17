@@ -13,8 +13,8 @@ to the system.
 ## Steps
 
 1. Download `Universal7D2DModManager.exe` from the Releases page.
-2. Put it in a folder you can write to. Do not put it in `Program Files`, Windows will not let it keep
-   its data there. `D:\Tools\ModManager` or any folder in your user profile is fine.
+2. Put it in any folder, including `Program Files`. If the folder is read-only for your account, the
+   manager copies itself to `%LOCALAPPDATA%\Universal7D2DModManager` and runs from there.
 3. Run it. Windows SmartScreen may show a warning because the file is not signed. Choose "More info"
    and then "Run anyway". The source code is public, the link is in the repository description.
 4. On the first start the setup window asks for three paths:
@@ -25,8 +25,13 @@ to the system.
    mods. Up to ten folders are allowed. Without one the library has nothing to scan.
 6. Press Start.
 
-The manager creates a `Data` folder next to the executable and keeps the database, settings, logs and
-backups there. Everything stays in one place.
+The manager keeps its `Data` folder next to the executable. If the program folder is read-only, the
+database, settings, logs and backups live in `%LOCALAPPDATA%\Universal7D2DModManager\Data` instead.
+That folder is shared by all versions, so updating the program does not move or reset your data.
+
+Keep shortcuts pointing at the original executable. It starts the current per-user copy; a shortcut
+made into `app-<version>` would stop working when that version is replaced. Only one manager runs at
+a time: starting it again brings the existing window to the front.
 
 ## First scan
 
@@ -50,8 +55,9 @@ the **ID…** button, either a number or a full link.
 
 ## Removing
 
-Delete the folder with the executable. That is all. Nothing is registered in the system, no services,
-no registry entries.
+Delete the folder with the executable. If the manager ran from a per-user copy (a read-only install
+such as `Program Files`), delete `%LOCALAPPDATA%\Universal7D2DModManager` as well. Nothing is
+registered in the system, no services, no registry entries.
 
 Your mods in the game folder are not touched by removing the manager.
 

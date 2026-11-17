@@ -10,6 +10,7 @@ namespace HarmonyLib
         public HarmonyPatch(Type declaringType) { }
         public HarmonyPatch(string methodName) { }
         public HarmonyPatch(Type declaringType, string methodName) { }
+        public HarmonyPatch(string[] methodNames) { }
     }
 }
 
@@ -29,6 +30,12 @@ namespace TestMod
     [HarmonyLib.HarmonyPatch(typeof(GameCode.Block))]
     [HarmonyLib.HarmonyPatch("LegacyCall")]
     internal static class PatchLegacyCall
+    {
+        private static void Postfix() { }
+    }
+
+    [HarmonyLib.HarmonyPatch(new string[] { "Alpha", "Beta" })]
+    internal static class PatchArrayTargets
     {
         private static void Postfix() { }
     }

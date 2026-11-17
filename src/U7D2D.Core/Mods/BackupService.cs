@@ -25,8 +25,11 @@ public sealed class BackupService
     {
         var root = string.IsNullOrWhiteSpace(settings.BackupsPath)
             ? Path.Combine(_paths.Root, "Backups")
-            : settings.BackupsPath;
-        Directory.CreateDirectory(root);
+            : PathSafety.NormalizeDirectory(settings.BackupsPath);
+
+        if (!PathSafety.IsDirectoryWritable(root))
+            throw new IOException(Localization.SF("bak.folderNotWritable", root));
+
         return root;
     }
 
@@ -41,21 +44,45 @@ public sealed class BackupService
         var archivePath = Path.Combine(backupsRoot, $"{folderName}-{stamp}.zip");
 
         var counter = 1;
-        while (File.Exists(archivePath))
+
+        // Reserve the name atomically: two backups of the same folder in one second must not open
+        // the same file for writing.
+        while (true)
         {
-            archivePath = Path.Combine(backupsRoot, $"{folderName}-{stamp}-{counter}.zip");
-            counter++;
+            try
+            {
+                using (new FileStream(archivePath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                }
+
+                break;
+            }
+            catch (IOException) when (counter < 1000)
+            {
+                archivePath = Path.Combine(backupsRoot, $"{folderName}-{stamp}-{counter}.zip");
+                counter++;
+            }
         }
 
         var options = new WriterOptions(CompressionType.Deflate) { LeaveStreamOpen = false };
-        using (var writer = WriterFactory.OpenWriter(archivePath, ArchiveType.Zip, options))
+
+        try
         {
-            foreach (var file in Directory.EnumerateFiles(modFolderPath, "*", SearchOption.AllDirectories))
+            using (var writer = WriterFactory.OpenWriter(archivePath, ArchiveType.Zip, options))
             {
-                var relative = Path.GetRelativePath(modFolderPath, file).Replace('\\', '/');
-                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
-                writer.Write(relative, stream, File.GetLastWriteTimeUtc(file));
+                foreach (var file in Directory.EnumerateFiles(modFolderPath, "*", SearchOption.AllDirectories))
+                {
+                    var relative = Path.GetRelativePath(modFolderPath, file).Replace('\\', '/');
+                    using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    writer.Write(relative, stream, File.GetLastWriteTimeUtc(file));
+                }
             }
+        }
+        catch
+        {
+            // Do not leave a half-written archive in the list.
+            try { File.Delete(archivePath); } catch (Exception) { }
+            throw;
         }
 
         var record = new BackupRecord
@@ -77,16 +104,32 @@ public sealed class BackupService
     public List<BackupRecord> List()
     {
         var records = _store.List();
-        foreach (var record in records.Where(r => !File.Exists(r.ArchivePath)).ToList())
-            _store.Remove(record.Id);
+        var available = new List<BackupRecord>();
 
-        return records.Where(r => File.Exists(r.ArchivePath)).ToList();
+        foreach (var record in records)
+        {
+            if (File.Exists(record.ArchivePath))
+            {
+                available.Add(record);
+                continue;
+            }
+
+            // A missing file means the user deleted it only when its folder is still there. If the
+            // folder itself is gone, the drive is offline: keep the record so the backup comes
+            // back with the drive instead of vanishing from the list for good.
+            var folder = Path.GetDirectoryName(record.ArchivePath);
+            if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                _store.Remove(record.Id);
+        }
+
+        return available;
     }
 
     public RestoreOutcome Restore(BackupRecord record, AppSettings settings, bool createSafetyBackup = true)
     {
         var outcome = new RestoreOutcome();
         string? staging = null;
+        var keepStaging = false;
 
         try
         {
@@ -99,6 +142,12 @@ public sealed class BackupService
             if (string.IsNullOrWhiteSpace(settings.ModsPath))
             {
                 outcome.Error = Localization.S("bak2.modsPathMissing");
+                return outcome;
+            }
+
+            if (!PathSafety.IsDirectoryWritable(settings.ModsPath))
+            {
+                outcome.Error = Localization.SF("mod.modsNotWritable", settings.ModsPath);
                 return outcome;
             }
 
@@ -130,6 +179,9 @@ public sealed class BackupService
                     return outcome;
                 }
                 outcome.FilesWritten = extraction.Files.Count;
+
+                if (extraction.SkippedUnsafe.Count > 0)
+                    outcome.Warnings.Add(Localization.SF("mod.unsafeSkipped", extraction.SkippedUnsafe.Count));
             }
 
             if (outcome.FilesWritten == 0)
@@ -138,13 +190,44 @@ public sealed class BackupService
                 return outcome;
             }
 
-            if (Directory.Exists(target) && !FileOps.DeleteDirectory(target))
+            var commit = FileOps.CommitDirectory(staging, target);
+
+            if (!commit.Success)
             {
-                outcome.Error = Localization.S("bak2.replaceFailed");
+                outcome.RolledBack = commit.RolledBack;
+                outcome.Error = DescribeCommitFailure(commit);
+
+                // The folder is gone and the old copy could not be moved back. Rebuild it from the
+                // safety backup taken a moment ago, so the user never ends up with neither version.
+                if (!commit.RolledBack && outcome.SafetyBackupPath is { } safety && File.Exists(safety))
+                {
+                    if (TryRecoverFromSafety(safety, target, out var recoveryError))
+                    {
+                        outcome.RecoveredFromSafety = true;
+                        outcome.Error = Localization.S("bak2.safetyRecovered") + " " + outcome.Error;
+                    }
+                    else
+                    {
+                        outcome.Error = Localization.SF("bak2.safetyRecoveryFailed", safety) +
+                                        (string.IsNullOrWhiteSpace(recoveryError) ? string.Empty : " " + recoveryError);
+                    }
+
+                    keepStaging = !outcome.RecoveredFromSafety;
+                }
+                else
+                {
+                    keepStaging = !commit.RolledBack;
+                }
+
+                if (commit.LikelyLocked)
+                    outcome.Error += " " + Localization.S("mod.lockedHint");
+
                 return outcome;
             }
 
-            FileOps.MoveDirectory(staging, target);
+            if (commit.Warning is not null) outcome.Warnings.Add(commit.Warning);
+
+            FileOps.TryDeleteDirectory(staging);
             staging = null;
             outcome.Success = true;
             return outcome;
@@ -156,7 +239,54 @@ public sealed class BackupService
         }
         finally
         {
-            if (staging is not null) FileOps.TryDeleteDirectory(staging);
+            if (staging is not null && !keepStaging) FileOps.TryDeleteDirectory(staging);
+        }
+    }
+
+    private static string DescribeCommitFailure(FileOps.DirectoryCommitResult commit)
+    {
+        var text = commit.Error ?? Localization.S("bak2.replaceFailed");
+        if (commit.RolledBack) text += " " + Localization.S("bak2.restoreRolledBack");
+        return text;
+    }
+
+    /// <summary>Rebuilds the target from the safety backup after a failed swap.</summary>
+    private bool TryRecoverFromSafety(string safetyArchive, string target, out string? error)
+    {
+        error = null;
+        string? recovery = null;
+
+        try
+        {
+            recovery = _paths.CreateTempDirectory("recover");
+
+            using (var handle = ArchiveReader.Open(safetyArchive, _paths.TempDirectory))
+            {
+                var extraction = ArchiveReader.ExtractSubtree(handle, string.Empty, recovery, overwrite: true);
+                if (!extraction.Success || extraction.Files.Count == 0)
+                {
+                    error = extraction.Error;
+                    return false;
+                }
+            }
+
+            var commit = FileOps.CommitDirectory(recovery, target);
+            if (!commit.Success)
+            {
+                error = commit.Error;
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error = ex.Message;
+            return false;
+        }
+        finally
+        {
+            if (recovery is not null) FileOps.TryDeleteDirectory(recovery);
         }
     }
 

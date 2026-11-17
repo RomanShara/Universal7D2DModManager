@@ -42,6 +42,17 @@
             }
         </div>
 
+        @if (Card.Package.IsComposite)
+        {
+            <div class="composite-note">
+                <Icon Name="layers" Size="13" />
+                <span>@Vm.F("card2.composite", Card.Package.Components.Count, Card.Package.SharedFolder)</span>
+            </div>
+            <div class="composite-list muted small">
+                @string.Join(" · ", Card.Package.Components.Select(c => c.FolderName))
+            </div>
+        }
+
         <p class="mod-desc @(_descExpanded ? "expanded" : "")" title="@Card.Description">@Card.Description</p>
 
         @if (IsLongDescription)

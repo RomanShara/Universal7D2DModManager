@@ -66,7 +66,8 @@ public static class Diagnostics
         text.AppendLine("[State]");
         text.AppendLine($"Installed mods: {installedMods.Count()}");
         text.AppendLine($"Archives scanned: {archivesScanned}, failed: {archivesFailed}");
-        text.AppendLine($"Nexus key set: {(string.IsNullOrWhiteSpace(settings.NexusApiKey) ? "no" : "yes")}");
+        text.AppendLine($"Nexus signed in (OAuth): " +
+            $"{(string.IsNullOrWhiteSpace(settings.NexusRefreshToken) && string.IsNullOrWhiteSpace(settings.NexusAccessToken) ? "no" : "yes")}");
         text.AppendLine();
 
         text.AppendLine("[Installed mods]");

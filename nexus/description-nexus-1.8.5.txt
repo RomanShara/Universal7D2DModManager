@@ -1,0 +1,116 @@
+[img]HEADER_IMAGE_URL[/img]
+
+[center][size=5][b]Universal 7 Days to Die Mod Manager[/b][/size]
+[size=2]Portable tool for Windows. Built and tested on 7 Days to Die V 3.4.0.[/size][/center]
+
+Open your Mods folder and answer one question: will these mods work together. That is what this tool is for. It keeps your archive folders, the installed mods and the compatibility report in one window, and it tries to explain the failures that a normal game log only hints at.
+
+The analysis is the part I spent the most time on. Two mods touching the same file is easy to detect and usually means nothing. What matters is what happens to a specific node. The manager reads every XPath patch, replays them on a copy of the game config in the order the game loads mods, and reports the result: which value survives, which edit is lost, and which patch does not find its target at all.
+
+That last case is the most common silent failure. A mod looks installed, the game starts fine, and some feature just does not work because its patch pointed at a node that no longer exists. The report separates a missing companion mod from a node renamed by a game update, so you do not go looking for the wrong problem.
+
+[center][size=4][b]What is new in 1.8.5[/b][/size][/center]
+
+[list]
+[*][b]Nexus updates look like an action.[/b] The card shows the mod poster, an update badge, the installed and available versions, and two buttons: Download update opens the files tab on Nexus in your browser, View changes opens the changelog. Pictures come from the same response the update check already receives, so no extra API requests are made.
+[*][b]The update check no longer invents updates.[/b] Many 7 Days to Die pages put the game version (3.3, 3.4, V3.1.0) into the version field, not the mod version. The check now follows the latest file version, recognises builds already present in your archive library, and asks to check the page when the numbering cannot be compared.
+[*][b]Complex archives are installed correctly.[/b] A ModInfo.xml several folders deep is found and installed as one folder directly in Mods. Generic wrappers no longer replace the real folder name, so load-order prefixes such as 0-Core survive.
+[*][b]You decide when the structure is ambiguous.[/b] If an archive can be installed under more than one folder name, the manager shows the levels, previews Mods/{name}, and asks which one becomes the mod folder. The choice is remembered for that archive.
+[*][b]Composite archives with shared DLLs are supported.[/b] When an archive contains a container with shared files and several child mods, the shared files are installed as a generated top-level mod 000-{name} with a minimal ModInfo.xml, and the children are installed next to it. The game ignores a folder without ModInfo.xml and reads DLLs only from a mod folder root, so this is the layout that actually loads. The card shows the generated folder and the child folders before installing.
+[*][b]Installing, updating and restoring are atomic.[/b] The new folder is copied next to the target, checked, and swapped in. The old folder stays until the swap succeeds, and a failure rolls back instead of leaving a half-written mod.
+[*][b]Failures are visible.[/b] Errors appear in the window instead of a silent no-op. A damaged database is quarantined as manager.corrupt-{stamp}.db and recreated with a banner that shows the path.
+[*][b]Runs from Program Files.[/b] If the program folder is read-only, the manager copies itself to %LOCALAPPDATA%\Universal7D2DModManager\app-{version}, keeps one shared Data folder for every version, and moves the existing database, settings and backups there on the first start. Only one manager runs at a time: starting it again brings the existing window to the front.
+[/list]
+
+Everything else is routine housekeeping:
+
+[list]
+[*]scanning folders with mod archives (ZIP, 7Z, RAR, TAR, GZ, BZ2, XZ) and installing them with a backup
+[*]a list of what is actually in the Mods folder, with versions, DLLs and update checks against Nexus
+[*]editing mod config values, with a copy of the file made before writing
+[*]backups you can restore or delete later
+[*]log analysis that explains missing classes, failed XML patches and lost stacks
+[*]starting the game, with Easy Anti-Cheat on or off
+[/list]
+
+Log analysis runs on a background thread and progress is filtered before it reaches the window, so a large log does not flood the interface. Very large logs (tens of megabytes) can still take several seconds; the report keeps the first 120 findings and tells you how many were left out.
+
+The interface is in English and Ukrainian, the switch is in the left menu. The manager itself never edits your mods. Conflict fixes are written as a separate patch mod, and anything that touches the game folder asks first.
+
+[center][size=4][b]Nexus API key[/b][/size][/center]
+
+The update check uses your own personal Nexus API key, created on nexusmods.com under API Access and pasted in Settings. It is optional: everything else works without it. It is used only to ask Nexus whether a newer file exists for your installed mods, never to download files, and it is stored locally on your PC.
+[center][size=4][b]Requirements and installation[/b][/size][/center]
+
+Windows 10 or 11, 64-bit. The .NET runtime is inside the executable, so there is nothing to install. WebView2 is present on Windows 11 and current Windows 10 builds; on a stripped system you may need to install it from Microsoft. An installed copy of the game is required. The version is read from the game files themselves, which matters for repacks that ship without version.txt. The tool was built and tested against V 3.4.0. Older versions have not been checked, so treat anything below 3.4 as unsupported for now.
+
+Put the executable in any folder and run it. On first start it asks for the game folder and for the folders where your mod archives are kept. You can point it at up to ten such folders, and it only reads what is already on your disk: the manager never downloads mods. Until at least one folder is added the library stays empty and there is nothing to scan. After that it creates a Data folder next to the executable and keeps the database, settings, logs and backups there. In a read-only folder such as Program Files the Data folder lives in %LOCALAPPDATA% and is shared by every version, so updating the program does not reset your settings or backups. Keep shortcuts pointing at the original executable: it starts the current per-user copy.
+
+Updating from 1.7.x is a normal replacement of the executable. The first start moves the existing database, settings and backups into the shared folder and removes old per-version copies only after their data was merged.
+
+One thing worth saying plainly: this is not a mod, and it does not need EAC disabled. It reads files and launches the game the same way a shortcut would.
+
+The source code is public, so anyone can check what the executable does and build it themselves:
+[url=https://github.com/RomanShara/Universal7D2DModManager]github.com/RomanShara/Universal7D2DModManager[/url]
+Downloads stay here on Nexus.
+
+If you find a conflict that the manager reports but that does not actually break anything, or the other way round, there is a Save diagnostics button in Settings. It writes one text file with the version, folders, detected game version, installed mods and the last operations. Attach it together with the names of the two mods. Precision is the whole point here, and a wrong warning is worse than no warning.
+
+______________________________________________________________________________
+
+[center][size=4][b]Українська[/b][/size][/center]
+
+[center][size=2]Портативний інструмент для Windows. Зроблено й перевірено на 7 Days to Die V 3.4.0.[/size][/center]
+
+Відкрийте папку Mods і дайте відповідь на одне питання: чи працюватимуть ці моди разом. Саме для цього цей інструмент. Він тримає папки з архівами, встановлені моди й звіт про сумісність в одному вікні та намагається пояснити збої, на які звичайний журнал гри лише натякає.
+
+Найбільше часу я витратив на аналіз. Два моди, що чіпають один файл, виявити легко, і зазвичай це нічого не означає. Важливо те, що стається з конкретним вузлом. Тому менеджер читає кожен XPath-патч, відтворює їх на копії конфігурації гри в тому порядку, у якому гра завантажує моди, і показує результат: яке значення залишиться, яка правка зникне і який патч узагалі не знаходить ціль.
+
+Останній випадок трапляється найчастіше і проходить непоміченим. Мод ніби встановлено, гра запускається, а якась функція просто не працює, бо її патч вказував на вузол, якого вже немає. Звіт намагається відрізнити відсутній супутній мод від вузла, перейменованого оновленням гри, щоб ви не шукали проблему не там.
+
+[center][size=4][b]Що нового у 1.8.5[/b][/size][/center]
+
+[list]
+[*][b]Оновлення з Nexus виглядають як дія.[/b] Картка показує постер мода, позначку оновлення, встановлену й доступну версії та дві кнопки: Завантажити оновлення відкриває вкладку файлів на Nexus у браузері, Подивитися зміни відкриває список змін. Картинки беруться з тієї самої відповіді, яку вже отримує перевірка, тож зайвих запитів немає.
+[*][b]Перевірка оновлень більше не вигадує оновлення.[/b] На багатьох сторінках 7 Days to Die у полі версії стоїть версія гри (3.3, 3.4, V3.1.0), а не версія мода. Тепер перевірка спирається на версію останнього файлу, розпізнає збірки, які вже є у вашій бібліотеці архівів, і просить перевірити сторінку, коли номери порівняти неможливо.
+[*][b]Складні архіви встановлюються правильно.[/b] ModInfo.xml на кілька папок углиб знаходиться й ставиться однією папкою прямо в Mods. Загальні контейнери більше не замінюють справжнє ім'я папки, тому префікси порядку завантаження, як 0-Core, зберігаються.
+[*][b]Ви вирішуєте, коли структура неоднозначна.[/b] Якщо архів можна поставити під кількома іменами, менеджер показує рівні, попередній перегляд Mods/{ім'я} і питає, який стане папкою мода. Вибір запам'ятовується для цього архіву.
+[*][b]Підтримано складені архіви зі спільними DLL.[/b] Якщо в архіві є контейнер зі спільними файлами й кілька дочірніх модів, спільні файли ставляться згенерованим модом верхнього рівня 000-{ім'я} з мінімальним ModInfo.xml, а дочірні моди ставляться поруч. Гра ігнорує папку без ModInfo.xml і читає DLL лише з кореня папки мода, тож це єдине компонування, яке справді завантажується. Картка показує згенеровану папку й дочірні папки до встановлення.
+[*][b]Встановлення, оновлення й відновлення атомарні.[/b] Нова папка копіюється поруч із ціллю, перевіряється й підмінюється. Стара папка залишається до успішної підміни, а збій відкочується, а не лишає недописаний мод.
+[*][b]Збої видно.[/b] Помилки з'являються у вікні, а не зникають безслідно. Пошкоджена база карантинується як manager.corrupt-{stamp}.db і створюється заново, з банером і шляхом до файлу.
+[*][b]Працює з Program Files.[/b] Якщо папка програми лише для читання, менеджер копіює себе в %LOCALAPPDATA%\Universal7D2DModManager\app-{версія}, тримає одну спільну папку Data для всіх версій і переносить туди наявну базу, налаштування й резервні копії під час першого запуску. Одночасно працює лише один менеджер: повторний запуск виводить уперед уже відкрите вікно.
+[/list]
+
+Решта це звичайне господарство:
+
+[list]
+[*]сканування папок з архівами модів (ZIP, 7Z, RAR, TAR, GZ, BZ2, XZ) і встановлення з резервною копією
+[*]список того, що насправді лежить у папці Mods, з версіями, DLL і перевіркою оновлень на Nexus
+[*]редагування значень у конфігах модів із копією файлу перед записом
+[*]резервні копії, які можна відновити або видалити
+[*]аналіз журналів, який пояснює відсутні класи, невдалі XML-патчі та загублені стеки
+[*]запуск гри, з Easy Anti-Cheat або без нього
+[/list]
+
+Аналіз журналів виконується у фоновому потоці, а оновлення прогресу фільтруються ще до вікна, тож великий журнал не завалює інтерфейс. Дуже великий журнал (десятки мегабайтів) усе одно може оброблятися кілька секунд; звіт показує перші 120 знахідок і пише, скільки лишилося поза межами.
+
+Інтерфейс англійською та українською, перемикач у лівому меню. Сам менеджер ваші моди не редагує. Виправлення конфліктів зберігаються окремим патч-модом, а будь-яка дія з папкою гри питає підтвердження.
+
+[center][size=4][b]Ключ API Nexus[/b][/size][/center]
+
+Перевірка оновлень використовує ваш особистий ключ API Nexus, створений на nexusmods.com у розділі API Access і вставлений у налаштуваннях. Він необов'язковий: усе інше працює без нього. Ключ потрібен лише для того, щоб запитати Nexus про новішу версію для встановлених модів, ніколи для завантаження файлів, і зберігається локально на вашому ПК.
+[center][size=4][b]Вимоги та встановлення[/b][/size][/center]
+
+Windows 10 або 11, 64-біт. Середовище .NET лежить усередині виконуваного файлу, тому ставити нічого не потрібно. WebView2 є у Windows 11 і сучасних збірках Windows 10; на врізаній системі його, можливо, доведеться встановити з сайту Microsoft. Потрібна встановлена гра. Версія читається з файлів самої гри, що важливо для репаків без version.txt. Інструмент зроблено й перевірено на V 3.4.0. Старіші версії не перевірялися, тому все, що нижче 3.4, поки без підтримки.
+
+Покладіть файл у будь-яку папку та запустіть. Під час першого старту він попросить папку гри та папки, де лежать архіви з модами. Таких папок можна вказати до десяти, і менеджер лише читає те, що вже є на диску: сам він моди не завантажує. Поки не додано хоча б одну папку, бібліотека порожня і сканувати нічого. Після цього він створить поруч папку Data і триматиме там базу даних, налаштування, журнали й резервні копії. У папці лише для читання, наприклад Program Files, папка Data живе в %LOCALAPPDATA% і є спільною для всіх версій, тож оновлення програми не скидає налаштування й резервні копії. Ярлики тримайте на початковому exe: він запускає актуальну копію в профілі.
+
+Оновлення з 1.7.x це звичайна заміна виконуваного файлу. Перший запуск переносить наявну базу, налаштування й резервні копії до спільної папки та видаляє старі копії версій лише після того, як їхні дані об'єднано.
+
+Варто сказати прямо: це не мод, і вимикати EAC для нього не потрібно. Він читає файли та запускає гру так само, як це робив би ярлик.
+
+Вихідний код відкритий, щоб кожен міг подивитися, що робить файл, і зібрати його сам:
+[url=https://github.com/RomanShara/Universal7D2DModManager]github.com/RomanShara/Universal7D2DModManager[/url]
+Завантаження залишається тут, на Nexus.
+
+Якщо знайдете конфлікт, який менеджер показує, але насправді нічого не ламає, або навпаки, у налаштуваннях є кнопка «Зберегти діагностику». Вона записує один текстовий файл із версією, папками, визначеною версією гри, встановленими модами й останніми операціями. Додайте його разом із назвами двох модів. Точність тут і є сенсом роботи, а хибне попередження гірше за його відсутність.

@@ -22,8 +22,16 @@
     {
         <div class="empty-state card">
             <div class="empty-icon"><Icon Name="database" Size="34" /></div>
-            <h2>@Vm.T("bak.empty")</h2>
-            <p>@Vm.T("bak.emptyHint")</p>
+            @if (Vm.BackupsFolderMissing)
+            {
+                <h2>@Vm.T("bak.folderMissingTitle")</h2>
+                <p>@Vm.F("bak.folderMissingHint", Vm.Settings.BackupsPath)</p>
+            }
+            else
+            {
+                <h2>@Vm.T("bak.empty")</h2>
+                <p>@Vm.T("bak.emptyHint")</p>
+            }
         </div>
     }
     else
@@ -53,7 +61,8 @@
                         <button class="btn primary sm" type="button" @onclick="() => Vm.RestoreAsync(backup)" disabled="@Vm.IsBusy">
                             <Icon Name="refresh" Size="14" /> @Vm.T("bk.restore")
                         </button>
-                        <button class="btn danger sm" type="button" @onclick="() => Vm.DeleteBackupAsync(backup)" disabled="@Vm.IsBusy">
+                        <button class="btn danger sm" type="button" @onclick="() => Vm.DeleteBackupAsync(backup)" disabled="@Vm.IsBusy"
+                                title="@Vm.T("bk.delete")" aria-label="@Vm.T("bk.delete")">
                             <Icon Name="trash" Size="14" />
                         </button>
                     </div>

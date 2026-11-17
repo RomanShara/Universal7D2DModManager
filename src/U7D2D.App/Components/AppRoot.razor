@@ -1,16 +1,42 @@
 @using U7D2D.App.Components.Layout
 @using Microsoft.AspNetCore.Components.Routing
+@inject NavigationManager Nav
 
-<Router AppAssembly="@typeof(AppRoot).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
-    </Found>
-    <NotFound>
-        <LayoutView Layout="@typeof(MainLayout)">
-            <div class="empty-state">
-                <h2>@Localization.S("ui.notFound")</h2>
-                <p>@Localization.S("ui.notFoundHint")</p>
+<ErrorBoundary @ref="_boundary">
+    <ChildContent>
+        <Router AppAssembly="@typeof(AppRoot).Assembly">
+            <Found Context="routeData">
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+            </Found>
+            <NotFound>
+                <LayoutView Layout="@typeof(MainLayout)">
+                    <div class="empty-state">
+                        <h2>@Localization.S("ui.notFound")</h2>
+                        <p>@Localization.S("ui.notFoundHint")</p>
+                    </div>
+                </LayoutView>
+            </NotFound>
+        </Router>
+    </ChildContent>
+    <ErrorContent>
+        <div class="error-boundary">
+            <div class="error-boundary-card">
+                <h2>@Localization.S("ui.errorTitle")</h2>
+                <div class="error-boundary-actions">
+                    <button type="button" class="btn primary" @onclick="Reload">@Localization.S("ui.errorReload")</button>
+                    <button type="button" class="btn ghost" @onclick="Dismiss">@Localization.S("ui.errorDismiss")</button>
+                </div>
             </div>
-        </LayoutView>
-    </NotFound>
-</Router>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
+
+@code {
+    private ErrorBoundary? _boundary;
+
+    // A failed render leaves the tree unusable, so the page is reloaded instead of patched up.
+    private void Reload() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
+
+    // Dismissing drops the captured exception and lets the router render again.
+    private void Dismiss() => _boundary?.Recover();
+}

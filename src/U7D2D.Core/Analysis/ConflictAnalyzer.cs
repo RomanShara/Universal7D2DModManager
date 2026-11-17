@@ -47,13 +47,13 @@ public sealed class ConflictAnalyzer
 
         if (snapshots.Count == 0)
         {
-            report.Notes.Add(Localization.S("an3.noMods"));
+            report.Notes.Add(new Loc("an3.noMods"));
             return report;
         }
 
         // One mod cannot conflict with itself, but its patches still have to be checked against the game.
         if (snapshots.Count < 2)
-            report.Notes.Add(Localization.S("an3.singleMod"));
+            report.Notes.Add(new Loc("an3.singleMod"));
 
         // Duplicate mod names installed into different folders. Compared by the technical <Name>,
         // because different mods legitimately share a display name.
@@ -72,7 +72,7 @@ public sealed class ConflictAnalyzer
                 ModA = folders[0],
                 ModB = folders[1],
                 Subject = group.Key,
-                Detail = Localization.SF("an3.duplicateModName",
+                DetailLoc = new Loc("an3.duplicateModName",
                     group.Key,
                     titles.Count == 1 ? $" ({titles[0]})" : string.Empty,
                     string.Join(", ", folders)),
@@ -104,13 +104,15 @@ public sealed class ConflictAnalyzer
             .Where(kv => kv.Value.Count > 1 && !kv.Value.Any(o => o.File.FullReplacement) &&
                          !nodeConflicts.Contains(kv.Key) && !replacementConflicts.Contains(kv.Key))
             .Select(kv => kv.Key)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         report.CoexistenceCount = sharedButDisjoint.Count;
+        report.CoexistenceFiles = sharedButDisjoint;
 
         if (sharedButDisjoint.Count > 0)
         {
-            report.Notes.Add(Localization.SF("an3.sharedDisjoint",
+            report.Notes.Add(new Loc("an3.sharedDisjoint",
                 sharedButDisjoint.Count,
                 string.Join(", ", sharedButDisjoint.Take(5)),
                 sharedButDisjoint.Count > 5 ? " …" : string.Empty));
@@ -137,7 +139,7 @@ public sealed class ConflictAnalyzer
                 ModA = owners[0],
                 ModB = owners[1],
                 Subject = window,
-                Detail = Localization.SF("an3.sameWindow", window),
+                DetailLoc = new Loc("an3.sameWindow", window),
                 Confidence = 0.8
             });
         }
@@ -163,7 +165,7 @@ public sealed class ConflictAnalyzer
                 ModA = owners[0],
                 ModB = owners[1],
                 Subject = dll,
-                Detail = Localization.S("an3.duplicateDll"),
+                DetailLoc = new Loc("an3.duplicateDll"),
                 Confidence = 0.85
             });
         }
@@ -178,7 +180,7 @@ public sealed class ConflictAnalyzer
                 ModA = harmonyMods[0],
                 ModB = harmonyMods[1],
                 Subject = "0Harmony.dll",
-                Detail = Localization.SF("an3.multipleHarmony", string.Join(", ", harmonyMods)),
+                DetailLoc = new Loc("an3.multipleHarmony", string.Join(", ", harmonyMods)),
                 Confidence = 0.9
             });
         }
@@ -193,11 +195,11 @@ public sealed class ConflictAnalyzer
         });
 
         if (report.Conflicts.Count == 0)
-            report.Notes.Add(Localization.S("an3.noOverlaps"));
+            report.Notes.Add(new Loc("an3.noOverlaps"));
 
         report.Notes = report.Notes.Distinct().ToList();
 
-        report.Notes.Add(Localization.S("an3.categories"));
+        report.Notes.Add(new Loc("an3.categories"));
         return report;
     }
 
@@ -242,13 +244,13 @@ public sealed class ConflictAnalyzer
             }
 
             conflict.Severity = FindingSeverity.High;
-            conflict.Detail += Localization.SF("an3.dependentEarlier", dependent.Name, dependency.Name);
+            conflict.Detail += new Loc("an3.dependentEarlier", dependent.Name, dependency.Name);
         }
 
         foreach (var conflict in intended)
         {
             report.Conflicts.Remove(conflict);
-            report.Notes.Add(Localization.SF("an3.intendedOverlap", conflict.Subject, conflict.ModA, conflict.ModB));
+            report.Notes.Add(new Loc("an3.intendedOverlap", conflict.Subject, conflict.ModA, conflict.ModB));
         }
     }
 
@@ -325,7 +327,7 @@ public sealed class ConflictAnalyzer
     {
         if (resolver is null || !resolver.IsAvailable)
         {
-            report.Notes.Add(Localization.S("an3.noVanillaConfig"));
+            report.Notes.Add(new Loc("an3.noVanillaConfig"));
             return;
         }
 
@@ -404,16 +406,16 @@ public sealed class ConflictAnalyzer
 
                     EmitPatchFinding(report, file, group.Key, writes, WriteSeverity(byStatus.Key), reason, note);
                     EmitPatchFinding(report, file, group.Key, removals, FindingSeverity.Low,
-                        reason + Localization.S("an2.removalSuffix"), Localization.S("an2.nothingToRemove"));
+                        Loc.Concat(reason, new Loc("an2.removalSuffix")), new Loc("an2.nothingToRemove"));
                 }
             }
         }
 
         if (skippedFiles > 0)
-            report.Notes.Add(Localization.SF("an3.skippedFiles", skippedFiles));
+            report.Notes.Add(new Loc("an3.skippedFiles", skippedFiles));
 
         if (unsupported > 0)
-            report.Notes.Add(Localization.SF("an3.unsupportedPatches", unsupported));
+            report.Notes.Add(new Loc("an3.unsupportedPatches", unsupported));
     }
 
     /// <summary>
@@ -440,7 +442,7 @@ public sealed class ConflictAnalyzer
             if (replacers.Count > 1)
             {
                 var names = string.Join(", ", replacers.Select(r => r.Mod.Name));
-                report.Notes.Add(Localization.SF("an3.multiReplace", path, names));
+                report.Notes.Add(new Loc("an3.multiReplace", path, names));
             }
 
             var last = replacers[^1];
@@ -458,7 +460,7 @@ public sealed class ConflictAnalyzer
 
             if (replaced is not null && vanilla is not null && SameDocument(replaced, vanilla))
             {
-                report.Notes.Add(Localization.SF("an3.identicalReplacement", last.Mod.Name, path));
+                report.Notes.Add(new Loc("an3.identicalReplacement", last.Mod.Name, path));
                 continue;
             }
 
@@ -495,9 +497,9 @@ public sealed class ConflictAnalyzer
                     ModA = last.Mod.Name,
                     ModB = lostMods[0],
                     Subject = path,
-                    Detail = replaced is null
-                        ? Localization.SF("an2.replaceUnparsed", $"«{last.Mod.Name}»", path)
-                        : Localization.SF("an2.replaceLost", $"«{last.Mod.Name}»", path, string.Join(", ", lostMods), lost.Count),
+                    DetailLoc = replaced is null
+                        ? new Loc("an2.replaceUnparsed", $"«{last.Mod.Name}»", path)
+                        : new Loc("an2.replaceLost", $"«{last.Mod.Name}»", path, string.Join(", ", lostMods), lost.Count),
                     Confidence = replaced is null ? 0.5 : 0.9,
                     Participants = lost
                         .GroupBy(l => l.Mod.Name, StringComparer.OrdinalIgnoreCase)
@@ -508,16 +510,16 @@ public sealed class ConflictAnalyzer
                             Operation = l.Patch.RawOperation,
                             XPath = l.Patch.XPath,
                             NewValue = l.Patch.Value,
-                            Note = replaced is null
-                                ? Localization.S("an3.noteNeedsCheck")
-                                : Localization.S("an3.noteMissingInReplacer")
+                            NoteLoc = replaced is null
+                                ? new Loc("an3.noteNeedsCheck")
+                                : new Loc("an3.noteMissingInReplacer")
                         }))
                         .ToList()
                 });
             }
             else if (kept.Count > 0)
             {
-                report.Notes.Add(Localization.SF("an3.replacementKeeps",
+                report.Notes.Add(new Loc("an3.replacementKeeps",
                     path,
                     last.Mod.Name,
                     string.Join(", ", kept.Distinct(StringComparer.OrdinalIgnoreCase))));
@@ -663,12 +665,12 @@ public sealed class ConflictAnalyzer
         _ => FindingSeverity.Low
     };
 
-    private static (string Reason, string Note) DescribePatchFailure(PatchStatus status) => status switch
+    private static (Loc Reason, Loc Note) DescribePatchFailure(PatchStatus status) => status switch
     {
-        PatchStatus.PathChanged => (Localization.S("an2.reasonPathChanged"), Localization.S("an2.notePathChanged")),
-        PatchStatus.AttributeMissing => (Localization.S("an2.reasonAttr"), Localization.S("an2.noteAttr")),
-        PatchStatus.RemovedByEarlier => (Localization.S("an2.reasonRemoved"), Localization.S("an2.noteRemoved")),
-        _ => (Localization.S("an2.reasonOptional"), Localization.S("an2.noteOptional"))
+        PatchStatus.PathChanged => (new Loc("an2.reasonPathChanged"), new Loc("an2.notePathChanged")),
+        PatchStatus.AttributeMissing => (new Loc("an2.reasonAttr"), new Loc("an2.noteAttr")),
+        PatchStatus.RemovedByEarlier => (new Loc("an2.reasonRemoved"), new Loc("an2.noteRemoved")),
+        _ => (new Loc("an2.reasonOptional"), new Loc("an2.noteOptional"))
     };
 
     private static void EmitPatchFinding(
@@ -677,8 +679,8 @@ public sealed class ConflictAnalyzer
         string mod,
         List<PatchOutcome> items,
         FindingSeverity severity,
-        string reason,
-        string note)
+        Loc reason,
+        Loc note)
     {
         if (items.Count == 0) return;
 
@@ -689,7 +691,7 @@ public sealed class ConflictAnalyzer
             ModA = mod,
             ModB = string.Empty,
             Subject = file,
-            Detail = Localization.SF("an2.patchFinding", $"«{mod}»", reason, items.Count),
+            DetailLoc = new Loc("an2.patchFinding", $"«{mod}»", reason, items.Count),
             Confidence = severity >= FindingSeverity.High ? 0.85 : 0.7,
             Participants = items.Select(f => new ConflictParticipant
             {
@@ -697,7 +699,7 @@ public sealed class ConflictAnalyzer
                 File = file,
                 Operation = f.Operation,
                 XPath = f.XPath,
-                Note = note
+                NoteLoc = note
             }).ToList()
         });
     }
@@ -783,9 +785,9 @@ public sealed class ConflictAnalyzer
                 ModA = removes[0].Mod.Name,
                 ModB = write.Mod.Name,
                 Subject = entries[0].Patch.TargetPath,
-                Detail = write.Patch.Attribute is null
-                    ? Localization.SF("an2.removeVsModify", removes[0].Mod.Name, write.Mod.Name)
-                    : Localization.SF("an2.removeVsModifyAttr", removes[0].Mod.Name, write.Mod.Name, write.Patch.Attribute),
+                DetailLoc = write.Patch.Attribute is null
+                    ? new Loc("an2.removeVsModify", removes[0].Mod.Name, write.Mod.Name)
+                    : new Loc("an2.removeVsModifyAttr", removes[0].Mod.Name, write.Mod.Name, write.Patch.Attribute),
                 Confidence = 0.85,
                 Participants = BuildParticipants(entries, resolver)
             });
@@ -818,7 +820,7 @@ public sealed class ConflictAnalyzer
                 ModA = writeMods[0],
                 ModB = writeMods[1],
                 Subject = entries[0].Patch.TargetPath,
-                Detail = Localization.SF("an2.overlap", string.Join(", ", attributes.Select(a => "@" + a))),
+                DetailLoc = new Loc("an2.overlap", string.Join(", ", attributes.Select(a => "@" + a))),
                 Confidence = 0.9,
                 Participants = BuildParticipants(entries, resolver)
             });
@@ -849,7 +851,7 @@ public sealed class ConflictAnalyzer
                     ModA = writes[0].Mod.Name,
                     ModB = writes[1].Mod.Name,
                     Subject = subject,
-                    Detail = Localization.SF("an2.conflictValue",
+                    DetailLoc = new Loc("an2.conflictValue",
                         string.Join(" / ", values.Select(v => $"«{v}»")),
                         $"«{finalValue}»",
                         $"«{winner.Mod.Name}»"),
@@ -868,7 +870,7 @@ public sealed class ConflictAnalyzer
                     ModA = writes[0].Mod.Name,
                     ModB = writes[1].Mod.Name,
                     Subject = subject,
-                    Detail = Localization.SF("an2.redundant", $"«{values[0]}»"),
+                    DetailLoc = new Loc("an2.redundant", $"«{values[0]}»"),
                     Confidence = 0.9,
                     Participants = BuildParticipants(entries, resolver)
                 });
@@ -905,7 +907,7 @@ public sealed class ConflictAnalyzer
                 ModA = mods[0],
                 ModB = mods[1],
                 Subject = node,
-                Detail = Localization.SF("an2.dupNode", string.Join(", ", mods)),
+                DetailLoc = new Loc("an2.dupNode", string.Join(", ", mods)),
                 Confidence = 0.9,
                 Participants = BuildParticipants(entries, resolver)
             });
@@ -956,7 +958,7 @@ public sealed class ConflictAnalyzer
         var report = new ConflictReport();
         if (installed.Count == 0)
         {
-            report.Notes.Add(Localization.S("an3.noInstalledMods"));
+            report.Notes.Add(new Loc("an3.noInstalledMods"));
             return report;
         }
 
@@ -978,9 +980,9 @@ public sealed class ConflictAnalyzer
                     ModA = package.DisplayTitle,
                     ModB = mod.DisplayTitle,
                     Subject = path,
-                    Detail = existing.FullReplacement
-                        ? Localization.S("an3.installedFullReplacement")
-                        : Localization.S("an3.bothModifyFile"),
+                    DetailLoc = existing.FullReplacement
+                        ? new Loc("an3.installedFullReplacement")
+                        : new Loc("an3.bothModifyFile"),
                     Confidence = 0.7
                 });
             }
@@ -996,7 +998,7 @@ public sealed class ConflictAnalyzer
                     ModA = package.DisplayTitle,
                     ModB = mod.DisplayTitle,
                     Subject = dll,
-                    Detail = Localization.S("an3.duplicateDllName"),
+                    DetailLoc = new Loc("an3.duplicateDllName"),
                     Confidence = 0.75
                 });
             }
@@ -1010,7 +1012,7 @@ public sealed class ConflictAnalyzer
                     ModA = package.DisplayTitle,
                     ModB = mod.DisplayTitle,
                     Subject = mod.FolderName,
-                    Detail = Localization.S("an3.folderBusy"),
+                    DetailLoc = new Loc("an3.folderBusy"),
                     Confidence = 0.95
                 });
             }
@@ -1024,13 +1026,13 @@ public sealed class ConflictAnalyzer
                     ModA = package.DisplayTitle,
                     ModB = mod.DisplayTitle,
                     Subject = package.Info.TechnicalName,
-                    Detail = Localization.S("an3.technicalNameInstalled"),
+                    DetailLoc = new Loc("an3.technicalNameInstalled"),
                     Confidence = 0.9
                 });
             }
         }
 
-        report.Notes.Add(Localization.S("an3.structureOnly"));
+        report.Notes.Add(new Loc("an3.structureOnly"));
         return report;
     }
 

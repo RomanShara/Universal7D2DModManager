@@ -41,3 +41,7 @@ nexus/deploy-notes.txt
 
 # Debug screenshots in the project root
 /*_zoom.png
+
+# Internal audit notes and end-to-end lab
+_audit/
+_e2e/

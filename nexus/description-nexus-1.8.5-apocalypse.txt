@@ -1,0 +1,124 @@
+[img]HEADER_IMAGE_URL[/img]
+
+[center][size=5][b]Universal 7 Days to Die Mod Manager[/b][/size]
+[size=2]The apocalypse edition of the description. The program is serious. This page is not.[/size][/center]
+
+You know the moment. Eighty-five mods, a log file the size of a short novel, and one feature that worked yesterday and is suddenly gone. You open the log, read three lines, close it, and decide to reinstall the game instead. We have all been there.
+
+This is a separate Windows program for that exact moment. It is not a mod, it does not need Easy Anti-Cheat disabled, and it does not download mods for you. It works with the archives already on your disk, keeps your installed mods in one list, checks what actually happens when their changes meet, and tries to explain the log without making you read all of it.
+
+[center][size=4][b]You might need this if[/b][/size][/center]
+
+[list]
+[*]You have a folder named Mods_old_new_final.
+[*]You remember the exact date of the last successful launch.
+[*]You have said "it worked yesterday" to a computer.
+[*]Your idea of a clean install is renaming the old Mods folder and pretending it never happened.
+[/list]
+[center][size=4][b]System requirements and side effects[/b][/size][/center]
+
+[list]
+[*][b]RAM:[/b] there was an incident. During one cold log analysis the manager found an attribute that politely asked for a gigantic array and decided to honor the request. It reached 16 GB before we pulled the plug. That bug is fixed. The memory of it is not.
+[*][b]Clothing:[/b] after the first log analysis on 85 mods, changing your underwear is recommended. Dark colors are more practical. This is not a system requirement, but it is a survival tip.
+[*][b]Psychological preparation:[/b] a log with eighty-five mods and no clear culprit is not a debugging session, it is a personality test. The manager will not always name the guilty mod. Sometimes the log simply does not say, and the report admits it.
+[*][b]Compatibility:[/b] Windows 10 or 11, 64-bit. Underwear compatibility is not guaranteed.
+[*][b]Technical support:[/b] the author also screamed, looked at the memory graph, and continued development. Send diagnostics. We cannot fix what we cannot see, and we cannot see through a screenshot of a task manager.
+[/list]
+
+[center][size=4][b]What it actually does, in one breath[/b][/size][/center]
+
+[list]
+[*]Keeps your mod archive folders, installed mods and reports in one window.
+[*]Shows what is really in the Mods folder: versions, DLLs, file counts.
+[*]Checks whether mods that touch the same settings actually conflict, instead of panicking because two files have the same name.
+[*]Groups repeated log errors, keeps the stack trace with the right error, and names a mod only when the log gives it a reason.
+[*]Installs, updates, removes and backs up mods. The old folder is kept until the replacement is ready.
+[*]Checks Nexus for newer versions, with your own API key, and only when you ask.
+[*]Launches the game with Easy Anti-Cheat on or off.
+[/list]
+
+[center][size=4][b]1.8.5 in one breath[/b][/size][/center]
+
+Update cards stopped looking like fine print and now show the poster, versions and two clear buttons. The version check stopped inventing updates because a mod page put the game version in the version field. Archives that unpack as mod inside mod inside mod no longer produce a folder the game cannot load. Ambiguous archives show a preview and let you choose the folder name. Packs with a shared library and several child mods are arranged the way the game expects. If a replacement fails, the manager tries to restore the previous version instead of leaving you with half a mod. A damaged database is set aside and reported instead of silently killing the program. And if Windows does not allow writing next to the exe, settings and backups live in your user profile and survive updates.
+
+The 16 GB story is fixed too. We are as surprised as you are.
+
+[center][size=4][b]Installation, without the ritual[/b][/size][/center]
+
+Put the executable in any folder and run it. On the first start it asks for the game folder and for the folders where your mod archives are kept. You can add up to ten archive folders. It reads what is already on your disk and never downloads mods on its own.
+
+The .NET runtime is inside the executable. WebView2 is included with Windows 11 and current Windows 10 builds; on a stripped system you may need to install it from Microsoft. The manager was built and tested on 7 Days to Die 3.4.0. Older versions have not been checked, so treat anything below 3.4 as unsupported for now.
+
+The Nexus API key is optional. It is used only to check whether your installed mods have newer files on Nexus. It is not used to download anything, and it stays on your PC. Without it, everything else still works, including install, backups, configs and launching the game.
+
+[center][size=4][b]If something goes wrong[/b][/size][/center]
+
+There is a Save diagnostics button in Settings. It writes one text file with the version, folders, detected game version, installed mods and the last operations. Attach it to your report together with the names of the mods involved. Do not attach underwear photos. We cannot analyze those yet.
+
+The source code is public, so you can check what the executable does or build it yourself:
+[url=https://github.com/RomanShara/Universal7D2DModManager]github.com/RomanShara/Universal7D2DModManager[/url]
+
+[center][size=4][b]Universal 7 Days to Die Mod Manager. We don't just manage mods. We manage consequences.[/b][/size][/center]
+
+______________________________________________________________________________
+
+[center][size=4][b]Українська[/b][/size][/center]
+
+[center][size=2]Апокаліптичне видання опису. Програма серйозна. Ця сторінка ні.[/size][/center]
+
+Знайома ситуація. Вісімдесят п'ять модів, лог розміром із невеликий роман і одна функція, яка вчора працювала, а сьогодні зникла. Ви відкриваєте лог, читаєте три рядки, закриваєте його й вирішуєте перевстановити гру. Усі через це проходили.
+
+Це окрема програма для Windows саме для такого моменту. Це не мод, їй не потрібно вимикати Easy Anti-Cheat, і вона не завантажує моди за вас. Вона працює з архівами, які вже є на диску, тримає встановлені моди в одному списку, перевіряє, що насправді відбувається, коли їхні зміни зустрічаються, і намагається пояснити лог, не змушуючи читати його повністю.
+
+[center][size=4][b]Вам це може знадобитися, якщо[/b][/size][/center]
+
+[list]
+[*]У вас є папка Mods_old_new_final.
+[*]Ви пам'ятаєте точну дату останнього успішного запуску.
+[*]Ви казали комп'ютеру «вчора це працювало».
+[*]Ваше уявлення про чисте встановлення це перейменувати стару папку Mods і зробити вигляд, що її не було.
+[/list]
+[center][size=4][b]Системні вимоги та побічні ефекти[/b][/size][/center]
+
+[list]
+[*][b]RAM:[/b] був інцидент. Під час одного холодного аналізу логів менеджер знайшов атрибут, який ввічливо попросив гігантський масив, і вирішив, що це гарна ідея. Він дійшов до 16 ГБ, поки його не зупинили. Помилку виправлено. Спогад залишився.
+[*][b]Одяг:[/b] після першого аналізу логів на 85 модах рекомендуємо змінити білизну. Темні кольори практичніші. Це не системна вимога, а порада з виживання.
+[*][b]Психологічна підготовка:[/b] лог на вісімдесят п'ять модів без очевидного винуватця це не налагодження, а тест на характер. Менеджер не завжди назве винний мод. Іноді лог просто мовчить, і звіт це визнає.
+[*][b]Сумісність:[/b] Windows 10 або 11, 64-біт. Сумісність з білизною не гарантується.
+[*][b]Технічна підтримка:[/b] автор теж кричав, подивився на графік пам'яті й продовжив розробку. Надсилайте діагностику. Ми не можемо виправити те, чого не бачимо, а скриншот диспетчера завдань цього не показує.
+[/list]
+
+[center][size=4][b]Що воно насправді робить, одним подихом[/b][/size][/center]
+
+[list]
+[*]Тримає папки з архівами, встановлені моди й звіти в одному вікні.
+[*]Показує, що насправді лежить у Mods: версії, DLL, кількість файлів.
+[*]Перевіряє, чи справді конфліктують моди, які змінюють ті самі налаштування, а не панікує через однакові назви файлів.
+[*]Групує повторювані помилки логу, залишає стек біля потрібної помилки й називає мод лише тоді, коли лог дає для цього підставу.
+[*]Встановлює, оновлює, видаляє та зберігає резервні копії. Стара папка залишається, доки заміна не буде готова.
+[*]Перевіряє нові версії на Nexus з вашим ключем API і лише за вашим бажанням.
+[*]Запускає гру з Easy Anti-Cheat або без нього.
+[/list]
+
+[center][size=4][b]1.8.5 одним подихом[/b][/size][/center]
+
+Картки оновлень перестали скидатися на дрібний шрифт і тепер показують постер, версії та дві зрозумілі кнопки. Перевірка версій перестала вигадувати оновлення через те, що сторінка мода писала у полі версії версію гри. Архіви, які розпаковуються як mod у mod у mod, більше не створюють папку, яку гра не завантажить. Неоднозначні архіви показують попередній перегляд і дають вибрати ім'я папки. Збірки зі спільною бібліотекою й кількома дочірніми модами розкладаються так, як очікує гра. Якщо заміна не вдається, менеджер намагається повернути попередню версію, а не залишає половину мода. Пошкоджена база відкладається вбік і про неї повідомляють, а не вбивають програму тихо. А якщо Windows не дає писати поруч із exe, налаштування й резервні копії живуть у профілі користувача і переживають оновлення.
+
+Історію про 16 ГБ теж виправлено. Ми здивовані не менше за вас.
+
+[center][size=4][b]Встановлення без ритуалу[/b][/size][/center]
+
+Покладіть exe у будь-яку папку та запустіть. Під час першого старту він попросить папку гри та папки, де лежать архіви з модами. Додати можна до десяти папок. Він читає те, що вже є на диску, і сам моди не завантажує.
+
+Середовище .NET лежить усередині виконуваного файлу. WebView2 є у Windows 11 і сучасних збірках Windows 10; на врізаній системі його, можливо, доведеться встановити з сайту Microsoft. Менеджер зроблено й перевірено на 7 Days to Die 3.4.0. Старіші версії не перевірялися, тому все, що нижче 3.4, поки без підтримки.
+
+Ключ API Nexus необов'язковий. Він потрібен лише для перевірки, чи є у встановлених модів новіші файли на Nexus. Для завантаження він не використовується й залишається на вашому ПК. Без нього все інше працює: встановлення, резервні копії, конфіги й запуск гри.
+
+[center][size=4][b]Якщо щось пішло не так[/b][/size][/center]
+
+У налаштуваннях є кнопка «Зберегти діагностику». Вона записує один текстовий файл із версією, папками, визначеною версією гри, встановленими модами й останніми операціями. Додайте його до звіту разом із назвами модів. Не додавайте фото білизни. Ми поки не вміємо це аналізувати.
+
+Вихідний код відкритий, його можна перевірити або зібрати програму самому:
+[url=https://github.com/RomanShara/Universal7D2DModManager]github.com/RomanShara/Universal7D2DModManager[/url]
+
+[center][size=4][b]Universal 7 Days to Die Mod Manager. Ми керуємо не лише модами. Ми керуємо наслідками.[/b][/size][/center]

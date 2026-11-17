@@ -1,0 +1,31 @@
+1.8.5
+
+- Nexus update cards now show the mod poster, an update badge, the installed and available versions, and two buttons: Download update opens the files tab on Nexus, View changes opens the changelog.
+- The update check follows the latest file version instead of the page version, which often holds the game version. Builds already present in the archive library are recognised, and mismatched numbering asks to check the page instead of claiming an update.
+- Archives with ModInfo.xml several folders deep install as one folder in Mods, and load-order prefixes such as 0-Core are preserved.
+- Ambiguous archives show their structure and ask which level becomes the mod folder, with a preview and a remembered choice.
+- Composite archives install shared files as a generated top-level mod 000-{name} with a minimal ModInfo.xml; child mods are installed separately.
+- Installing, updating and restoring are atomic with rollback; failures are shown in the window.
+- A damaged database is quarantined as manager.corrupt-{stamp}.db and recreated with a banner.
+- The manager runs from read-only folders such as Program Files, keeps one shared Data folder for every version, and allows only one instance.
+- Log analysis keeps exception stacks, names XML patch targets without xpath, and explains the third class-lookup mechanism.
+- Progress updates from log analysis are filtered on the analyzer side before they reach the window, so a large log cannot flood the interface; parsing keeps full speed. Tens of megabytes can still take a few seconds.
+
+
+- Cold log analysis no longer allocates gigabytes on malformed Harmony metadata. The index now builds in under a second on the same collection, with the same patch targets, and skipped attributes are reported in the analysis.
+
+---
+
+Українською
+
+- Картки оновлень Nexus показують постер, позначку оновлення, встановлену й доступну версії та дві кнопки: Завантажити оновлення відкриває вкладку файлів, Подивитися зміни відкриває список змін.
+- Перевірка оновлень спирається на версію останнього файлу, а не сторінки, де часто стоїть версія гри. Збірки з бібліотеки архівів розпізнаються, а неузгоджені номери просять перевірити сторінку.
+- Архіви з ModInfo.xml на кілька папок углиб ставляться однією папкою в Mods, префікси порядку завантаження зберігаються.
+- Неоднозначні архіви показують структуру й питають, який рівень стане папкою мода, з попереднім переглядом і запам'ятовуванням вибору.
+- Складені архіви ставлять спільні файли згенерованим модом 000-{ім'я} з мінімальним ModInfo.xml, дочірні моди окремо.
+- Встановлення, оновлення й відновлення атомарні, з відкатом; збої видно у вікні.
+- Пошкоджена база карантинується як manager.corrupt-{stamp}.db і створюється заново з банером.
+- Менеджер працює з папок лише для читання, наприклад Program Files, тримає одну спільну Data для всіх версій і допускає лише один екземпляр.
+- Аналіз журналів зберігає стеки винятків, називає цілі XML-патчів без xpath і пояснює третій механізм пошуку класів.
+- Оновлення прогресу аналізу журналів фільтруються на боці аналізатора ще до вікна, тож великий журнал не завалює інтерфейс; розбір працює на повній швидкості. Десятки мегабайтів усе одно можуть тривати кілька секунд.
+- Холодний аналіз журналів більше не виділяє гігабайти на пошкоджених метаданих Harmony. Індекс будується менш ніж за секунду на тій самій колекції, з тими самими цілями патчів.

@@ -1,0 +1,282 @@
+@*
+    Log analysis page. The run is awaited: the heavy work stays on the thread pool and the report is
+    applied back on the renderer's context, where the collection and the operation log belong. While
+    it runs, the button is disabled and the status line shows the current stage.
+*@
+@page "/logs"
+@using System.ComponentModel
+@inherits VmComponentBase
+@inject AppViewModel Vm
+
+<PageTitle>@Vm.T("title.logs")</PageTitle>
+
+<div class="page">
+    <div class="toolbar">
+        <div class="list-count">
+            @if (Vm.IsAnalyzingLogs)
+            {
+                <strong>@Vm.LogProgressText &middot; @Percent%</strong>
+            }
+            else if (Vm.HasLogReport)
+            {
+                <strong>@Vm.LogSummaryText</strong>
+            }
+            else
+            {
+                <strong>@Vm.T("logs.hint")</strong>
+            }
+        </div>
+        <div class="toolbar-right">
+            <button class="btn primary" type="button" disabled="@Vm.IsAnalyzingLogs"
+                    @onclick="() => Vm.StartLogAnalysisAsync()">
+                <Icon Name="search" Size="16" />
+                @(Vm.IsAnalyzingLogs ? Vm.T("logs.working") : Vm.T("logs.run"))
+            </button>
+            @if (Vm.CanCancelLogs)
+            {
+                <button class="btn ghost" type="button" @onclick="() => Vm.CancelLogAnalysis()">
+                    <Icon Name="x" Size="16" /> @Vm.T("logs.cancel")
+                </button>
+            }
+            <button class="btn ghost" type="button" disabled="@(!Vm.HasLogReport || Vm.IsAnalyzingLogs)"
+                    @onclick="() => Vm.SaveLogReportAsync()">
+                <Icon Name="download" Size="16" /> @Vm.T("logs.save")
+            </button>
+        </div>
+    </div>
+
+    @if (Vm.HasLogReport && !string.IsNullOrEmpty(Vm.LogTruncationText))
+    {
+        <div class="log-message">@Vm.LogTruncationText</div>
+    }
+
+    @if (Vm.IsAnalyzingLogs)
+    {
+        <div class="log-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+             aria-valuenow="@Percent">
+            <div class="log-progress-fill" style="width: @(Percent)%"></div>
+        </div>
+    }
+
+    @if (Vm.LogComparison is { } cmp && Vm.HasLogReport)
+    {
+        <div class="card log-compare">
+            <div class="log-title">@Vm.T("log.cmpTitle")</div>
+
+            <div class="log-compare-row">
+                <span>@Vm.F("log.cmpCurrentLog", cmp.LoadedCurrent.Count)</span>
+            </div>
+
+            <div class="log-compare-row">
+                <span>
+                    @(cmp.HasPreviousSession
+                        ? Vm.F("log.cmpPreviousLog", cmp.LoadedPrevious.Count)
+                        : Vm.T("log.cmpNoPrevious"))
+                </span>
+            </div>
+
+            <div class="log-compare-row">
+                <span>@Vm.F("log.cmpInstalledNow", cmp.InstalledNow.Count)</span>
+            </div>
+
+            <div class="log-message">@Vm.T("log.cmpInstalledNote")</div>
+            <div class="log-message">@Vm.T("log.cmpCountsNote")</div>
+
+            @if (cmp.FirstError is { } error)
+            {
+                <div class="log-compare-row">
+                    <span>@Vm.T("log.cmpFirstError"): @error.ToString("dd.MM, HH:mm")</span>
+                </div>
+            }
+
+            @if (cmp.NewInCurrent.Count > 0)
+            {
+                <div class="log-compare-row"><strong>@Vm.T("log.cmpNewSince")</strong></div>
+
+                @foreach (var mention in cmp.NewInCurrent)
+                {
+                    var minutes = U7D2D.Core.Logs.LogComparison.MinutesBefore(mention, cmp.FirstError);
+
+                    <div class="log-compare-row">
+                        <strong>+ @mention.Name</strong>
+                        <span>@Vm.T("log.cmpSeen"): @(mention.FirstSeen?.ToString("dd.MM, HH:mm") ?? "-")</span>
+                        @if (minutes is not null)
+                        {
+                            <span>@Vm.F("log.cmpMinutes", minutes)</span>
+                        }
+                    </div>
+                }
+
+                <ul class="log-advice"><li>@Vm.T("log.cmpCoincidence")</li></ul>
+            }
+
+            @if (cmp.MissingInCurrent.Count > 0)
+            {
+                <div class="log-compare-row">
+                    <span>@Vm.T("log.cmpGoneSince"): @string.Join(", ", cmp.MissingInCurrent)</span>
+                </div>
+            }
+
+            @if (cmp.InstalledNotLoaded.Count > 0)
+            {
+                <div class="log-compare-row">
+                    <strong>@Vm.T("log.cmpInstalledNotLoaded")</strong>
+                    <span>@string.Join(", ", cmp.InstalledNotLoaded)</span>
+                </div>
+                <div class="log-message">@Vm.T("log.cmpInstalledNotLoadedHint")</div>
+            }
+
+            @if (cmp.LoadedNotInstalled.Count > 0)
+            {
+                <div class="log-compare-row">
+                    <strong>@Vm.T("log.cmpLoadedNotInstalled")</strong>
+                    <span>@string.Join(", ", cmp.LoadedNotInstalled)</span>
+                </div>
+                <div class="log-message">@Vm.T("log.cmpLoadedNotInstalledHint")</div>
+            }
+        </div>
+    }
+
+    @if (!Vm.HasLogReport)
+    {
+        <div class="empty-state card">
+            <div class="empty-icon"><Icon Name="info" Size="34" /></div>
+            <h2>@Vm.T("logs.emptyTitle")</h2>
+            <p>@Vm.T("logs.emptyText")</p>
+        </div>
+    }
+    else if (Vm.LogFindings.Count == 0)
+    {
+        <div class="empty-state card">
+            <div class="empty-icon"><Icon Name="check" Size="34" /></div>
+            <h2>@Vm.T("logs.cleanTitle")</h2>
+            <p>@Vm.T("logs.cleanText")</p>
+        </div>
+    }
+    else
+    {
+        @if (Vm.LogNotes.Count > 0)
+        {
+            <div class="card log-notes">
+                <div class="log-title">@Vm.T("log.notesTitle")</div>
+                <ul class="log-advice">
+                    @foreach (var note in Vm.LogNotes)
+                    {
+                        <li>@note.Text</li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @if (Vm.LogIndexWarnings.Count > 0)
+        {
+            <div class="log-index-warnings">
+                <div class="log-title">@Vm.T("log.indexWarningsTitle")</div>
+                @foreach (var warning in Vm.LogIndexWarnings)
+                {
+                    <div class="inline-warning">
+                        <Icon Name="alert" Size="14" />
+                        <span>@warning</span>
+                    </div>
+                }
+            </div>
+        }
+
+        <div class="log-list">
+            @foreach (var finding in Vm.LogFindings)
+            {
+                <div class="card log-card">
+                    <div class="log-head">
+                        <div class="log-title">@finding.DisplayTitle</div>
+                        <span class="log-badge @(finding.IsNotice ? "muted" : Badge(finding.Confidence))">
+                            @(finding.IsNotice ? Vm.T("log.confNotice") : Confidence(finding.Confidence))
+                        </span>
+                        @if (finding.Occurrences > 1)
+                        {
+                            <span class="log-repeats">x@(finding.Occurrences)</span>
+                        }
+                    </div>
+
+                    <div class="log-message">@finding.Message</div>
+
+                    @if (finding.Occurrences > 1 && finding.FirstSeen is { } first &&
+                         finding.LastSeen != first)
+                    {
+                        <div class="log-message">
+                            @Vm.T("log.fieldFirstLast"): @first.ToString("HH:mm:ss") /
+                            @(finding.LastSeen?.ToString("HH:mm:ss") ?? "-")
+                        </div>
+                    }
+
+                    @if (finding.DistinctValues > 0)
+                    {
+                        <div class="log-message">
+                            @Vm.T("log.fieldDistinct"): @finding.DistinctValues / @finding.Occurrences
+                        </div>
+                    }
+
+                    @if (finding.Details.Count > 0)
+                    {
+                        <div class="log-message">
+                            @Vm.T("log.fieldDetails"): @string.Join(", ", finding.Details)@(finding.Details.Count < finding.DistinctValues ? ", ..." : "")
+                        </div>
+                    }
+
+                    @if (finding.Suspects.Count > 0)
+                    {
+                        <div class="log-suspects">
+                            @foreach (var suspect in finding.Suspects)
+                            {
+                                <div class="log-suspect">
+                                    <strong>@suspect.ModName</strong>
+                                    <span class="log-badge @Badge(suspect.Confidence)">@Confidence(suspect.Confidence)</span>
+                                    <div class="log-reason">@suspect.Reason.Text</div>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (finding.Frames.Count > 0)
+                    {
+                        <details class="log-details">
+                            <summary>@Vm.T("log.fieldStack")</summary>
+                            <pre>@string.Join("\n", finding.Frames.Where(f => !string.IsNullOrWhiteSpace(f)).Select(f => "at " + f))</pre>
+                        </details>
+                    }
+
+                    @if (finding.Suggestions.Count > 0)
+                    {
+                        <ul class="log-advice">
+                            @foreach (var suggestion in finding.Suggestions)
+                            {
+                                <li>@suggestion.Text</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    protected override INotifyPropertyChanged ViewModel => Vm;
+
+    private int Percent => (int)Math.Round(Math.Clamp(Vm.LogProgress, 0, 1) * 100);
+
+    private string Confidence(U7D2D.Core.Logs.LogConfidence confidence) => confidence switch
+    {
+        U7D2D.Core.Logs.LogConfidence.High => Vm.T("log.confHigh"),
+        U7D2D.Core.Logs.LogConfidence.Medium => Vm.T("log.confMedium"),
+        U7D2D.Core.Logs.LogConfidence.Low => Vm.T("log.confLow"),
+        _ => Vm.T("log.confNone")
+    };
+
+    private static string Badge(U7D2D.Core.Logs.LogConfidence confidence) => confidence switch
+    {
+        U7D2D.Core.Logs.LogConfidence.High => "bad",
+        U7D2D.Core.Logs.LogConfidence.Medium => "warn",
+        U7D2D.Core.Logs.LogConfidence.Low => "muted",
+        _ => "muted"
+    };
+}

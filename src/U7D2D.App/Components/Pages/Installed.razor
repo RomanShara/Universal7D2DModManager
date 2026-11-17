@@ -72,7 +72,14 @@
         <div class="installed-list">
             @foreach (var mod in Filtered)
             {
-                <div class="installed-row @(mod.IsBusy ? "busy" : "")" @key="mod.Folder">
+                <div class="installed-row @(mod.IsBusy ? "busy" : "") @(mod.HasNexusUpdate ? "has-update" : "")" @key="mod.Folder">
+                    <div class="mod-poster">
+                        <span class="mod-poster-letter">@mod.PosterLetter</span>
+                        @if (!string.IsNullOrWhiteSpace(mod.PosterUrl))
+                        {
+                            <img src="@mod.PosterUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.remove()" />
+                        }
+                    </div>
                     <div class="installed-main">
                         <div class="installed-title">
                             <span>@mod.Title</span>
@@ -82,7 +89,7 @@
                             }
                             @if (mod.HasNexusUpdate)
                             {
-                                <span class="badge nexus">Nexus → @mod.NexusRemoteVersion</span>
+                                <span class="badge nexus">@Vm.T("inst.updateBadge")</span>
                             }
                             @if (!mod.HasModInfo)
                             {
@@ -121,15 +128,18 @@
                             <span class="chip muted">@mod.NexusIdLabel</span>
                             @if (mod.Nexus is not null)
                             {
-                                <span class="muted small">@mod.NexusMessage</span>
-                                @if (!string.IsNullOrWhiteSpace(mod.NexusFilesUrl))
+                                @if (!mod.ShowNexusCallout)
                                 {
-                                    <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusFilesUrl)">@Vm.T("inst.filesTab")</button>
-                                    <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusChangelogUrl)">@Vm.T("inst.changes")</button>
-                                }
-                                else if (mod.NexusNeedsLink)
-                                {
-                                    <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(Vm.NexusGameModsUrl)">@Vm.T("inst.findNexus")</button>
+                                    <span class="muted small">@mod.NexusMessage</span>
+                                    @if (!string.IsNullOrWhiteSpace(mod.NexusFilesUrl))
+                                    {
+                                        <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusFilesUrl)">@Vm.T("inst.filesTab")</button>
+                                        <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusChangelogUrl)">@Vm.T("inst.changes")</button>
+                                    }
+                                    else if (mod.NexusNeedsLink)
+                                    {
+                                        <button class="link-btn" type="button" @onclick="() => Vm.OpenNexusUrl(Vm.NexusGameModsUrl)">@Vm.T("inst.findNexus")</button>
+                                    }
                                 }
                             }
                             else
@@ -138,6 +148,30 @@
                             }
                             <button class="link-btn" type="button" @onclick="() => BeginEdit(mod)">ID…</button>
                         </div>
+
+                        @if (mod.ShowNexusCallout)
+                        {
+                            <div class="update-callout">
+                                <div class="update-callout-text">
+                                    <span class="update-callout-icon"><Icon Name="download" Size="16" /></span>
+                                    <div>
+                                        <div class="update-callout-title">@Vm.F("inst.updateFromTo", mod.Version, mod.NexusRemoteVersion ?? string.Empty)</div>
+                                        <div class="update-callout-hint">@Vm.T("inst.updateHint")</div>
+                                    </div>
+                                </div>
+                                <div class="update-callout-actions">
+                                    <button class="btn accent sm" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusFilesUrl)" title="@Vm.F("inst.updateFromTo", mod.Version, mod.NexusRemoteVersion ?? string.Empty)">
+                                        <Icon Name="download" Size="14" /> @Vm.T("inst.downloadUpdate")
+                                    </button>
+                                    @if (!string.IsNullOrWhiteSpace(mod.NexusChangelogUrl))
+                                    {
+                                        <button class="btn ghost sm" type="button" @onclick="() => Vm.OpenNexusUrl(mod.NexusChangelogUrl)">
+                                            <Icon Name="external" Size="14" /> @Vm.T("inst.changes")
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
 
                         @if (EditingFolder == mod.Folder)
                         {

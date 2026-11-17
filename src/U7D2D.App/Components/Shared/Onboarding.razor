@@ -1,4 +1,6 @@
+@using System.ComponentModel
 @inject AppViewModel Vm
+@implements IDisposable
 
 @if (Vm.SetupRequired)
 {
@@ -75,4 +77,15 @@
             </div>
         </div>
     </div>
+}
+
+@code {
+    // Without this the modal never comes back after "Setup wizard": the component has no parameters,
+    // so a parent re-render does not re-evaluate SetupRequired.
+    protected override void OnInitialized() => Vm.PropertyChanged += OnViewModelChanged;
+
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e) =>
+        _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Vm.PropertyChanged -= OnViewModelChanged;
 }

@@ -226,7 +226,11 @@ public sealed class ConflictDeepTests
         Assert.DoesNotContain(report.Conflicts, c => c.Kind == ConflictKind.SameConfigFile);
         Assert.DoesNotContain(report.Conflicts, c => c.Kind == ConflictKind.ConflictingValue);
         Assert.DoesNotContain(report.Conflicts, c => c.Kind == ConflictKind.DuplicateNode);
-        Assert.Contains(report.Notes, n => n.Contains("different nodes"));
+        Assert.Contains(report.Notes, n => n.Text.Contains("different nodes"));
+
+        // The summary counter has to be openable as a list, so the file names travel with the count.
+        Assert.Equal(1, report.CoexistenceCount);
+        Assert.Equal(new[] { "Config/items.xml" }, report.CoexistenceFiles);
     }
 
     [Fact]

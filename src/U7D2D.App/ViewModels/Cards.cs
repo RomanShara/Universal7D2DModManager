@@ -163,12 +163,18 @@ public partial class InstalledCardViewModel : ObservableObject
     [ObservableProperty] private string _nexusIdLabel = Localization.S("card.nexusNotLinked");
 
     public bool HasNexusUpdate => Nexus?.IsUpdate == true;
+    /// <summary>True when the card shows the update callout with the download action.</summary>
+    public bool ShowNexusCallout => HasNexusUpdate && !string.IsNullOrWhiteSpace(NexusFilesUrl);
     public string? NexusRemoteVersion => Nexus?.RemoteVersion;
     public string? NexusMessage => Nexus?.Message;
     public string? NexusFilesUrl => Nexus?.FilesUrl;
     public string? NexusChangelogUrl => Nexus?.ChangelogUrl;
     public string? NexusPageUrl => Nexus?.PageUrl;
     public bool NexusNeedsLink => Nexus?.Status == NexusCheckStatus.NotLinked;
+
+    /// <summary>Poster from the API, empty when the mod has no link or no image.</summary>
+    public string? PosterUrl => Nexus?.PictureUrl;
+    public string PosterLetter => string.IsNullOrWhiteSpace(Title) ? "?" : Title.Trim()[..1].ToUpperInvariant();
 
     public string Title => Model.DisplayTitle;
     public string Version => Model.VersionLabel;

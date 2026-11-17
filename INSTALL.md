@@ -45,10 +45,12 @@ if backups are enabled in Settings.
 
 Optional. Updates from an archive work without it.
 
-1. Open Settings, find the Nexus API key field.
-2. Get a personal key at `nexusmods.com/users/myaccount?tab=api`, it is free.
-3. Paste it and press the check button. The key is stored encrypted and never leaves your machine
-   except in requests to Nexus.
+1. Open Settings and press **Sign in with Nexus**.
+2. Your browser opens the Nexus website. Approve access and return to the manager.
+3. The app stores the resulting tokens encrypted. No personal API key is needed.
+
+If the sign-in button reports that no client id is configured, this build has not been registered yet.
+Enter the id issued by Nexus in the **OAuth client id** field and press **Save**.
 
 If a mod shows "not linked", the manager could not work out its Nexus id. You can enter it by hand with
 the **ID…** button, either a number or a full link.
